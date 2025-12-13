@@ -171,6 +171,10 @@ class _ChatScreenState extends State<ChatScreen> {
             builder: (_) => InputBar(
               controller: _controller,
               onSend: _handleSend,
+              onSendImage: (imageBytes, question) {
+                chatStore.sendImageMessage(imageBytes, question);
+                _scrollToBottom();
+              },
               isLoading: chatStore.isLoading,
             ),
           ),

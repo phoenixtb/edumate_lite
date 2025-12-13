@@ -54,18 +54,26 @@ class RagEngine {
       // Generate query embedding (optimized for retrieval)
       final queryEmbedding = await embeddingProvider.embedQuery(query);
 
-      // Retrieve relevant chunks
-      final retrievedChunks = await vectorStore.search(
+      // CRITICAL: Wait for embedding's internal LLM session to fully close
+      // embedding_gemma creates native sessions that persist after the call returns
+      // Qualcomm devices (Snapdragon) require longer cleanup time than MediaTek
+      await Future.delayed(const Duration(milliseconds: 500));
+
+      // Retrieve more chunks than needed, then rerank
+      final candidateChunks = await vectorStore.search(
         queryEmbedding,
-        topK: retrievalTopK,
+        topK: retrievalTopK * 2, // Fetch 2x for reranking
         threshold: similarityThreshold,
         materialIds: materialIds,
       );
 
       // Handle no relevant context
-      if (retrievedChunks.isEmpty) {
+      if (candidateChunks.isEmpty) {
         return Right(_noContextFoundStream(query));
       }
+
+      // Rerank chunks based on query term relevance
+      final retrievedChunks = _rerankChunks(candidateChunks, query, retrievalTopK);
 
       // Build context from retrieved chunks
       final context = _buildContext(retrievedChunks);
@@ -142,6 +150,65 @@ class RagEngine {
       return Left(ProcessingFailure('Quiz generation failed: $e'));
     }
   }
+
+  /// Rerank chunks based on query term overlap
+  /// Combines embedding similarity with lexical relevance
+  List<ScoredChunk> _rerankChunks(
+    List<ScoredChunk> candidates,
+    String query,
+    int topK,
+  ) {
+    // Extract query terms (lowercase, remove common words)
+    final queryTerms = query
+        .toLowerCase()
+        .split(RegExp(r'\s+'))
+        .where((t) => t.length > 2)
+        .where((t) => !_stopWords.contains(t))
+        .toSet();
+
+    if (queryTerms.isEmpty) {
+      // Fallback to original order if no meaningful terms
+      return candidates.take(topK).toList();
+    }
+
+    // Score each chunk based on term overlap + embedding score
+    final reranked = candidates.map((sc) {
+      final contentLower = sc.chunk.content.toLowerCase();
+      
+      // Count matching terms
+      int termMatches = 0;
+      for (final term in queryTerms) {
+        if (contentLower.contains(term)) {
+          termMatches++;
+        }
+      }
+      
+      // Combined score: 70% embedding, 30% term relevance
+      final termScore = queryTerms.isEmpty ? 0.0 : termMatches / queryTerms.length;
+      final combinedScore = (sc.score * 0.7) + (termScore * 0.3);
+      
+      return ScoredChunk(chunk: sc.chunk, score: combinedScore);
+    }).toList();
+
+    // Sort by combined score descending
+    reranked.sort((a, b) => b.score.compareTo(a.score));
+
+    return reranked.take(topK).toList();
+  }
+
+  // Common stop words to ignore in reranking
+  static const _stopWords = {
+    'the', 'a', 'an', 'is', 'are', 'was', 'were', 'be', 'been', 'being',
+    'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would', 'could',
+    'should', 'may', 'might', 'must', 'shall', 'can', 'need', 'dare',
+    'ought', 'used', 'to', 'of', 'in', 'for', 'on', 'with', 'at', 'by',
+    'from', 'as', 'into', 'through', 'during', 'before', 'after', 'above',
+    'below', 'between', 'under', 'again', 'further', 'then', 'once',
+    'what', 'which', 'who', 'whom', 'this', 'that', 'these', 'those',
+    'am', 'and', 'but', 'if', 'or', 'because', 'until',
+    'while', 'about', 'against', 'how', 'why', 'when', 'where', 'please',
+    'explain', 'tell', 'me', 'you', 'briefly', 'describe',
+  };
 
   /// Build context string from retrieved chunks
   String _buildContext(List<ScoredChunk> chunks) {

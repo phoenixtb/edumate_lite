@@ -57,6 +57,9 @@ android {
                 "META-INF/*.kotlin_module"
             )
         }
+        jniLibs {
+            useLegacyPackaging = true
+        }
     }
 }
 

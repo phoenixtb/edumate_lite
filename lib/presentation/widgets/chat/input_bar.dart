@@ -1,17 +1,23 @@
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
+import '../common/image_picker_button.dart';
 
 class InputBar extends StatefulWidget {
   final TextEditingController controller;
   final VoidCallback onSend;
+  final void Function(Uint8List imageBytes, String question)? onSendImage;
   final bool isLoading;
   final bool showSuggestions;
+  final bool showImageAttachment;
 
   const InputBar({
     super.key,
     required this.controller,
     required this.onSend,
+    this.onSendImage,
     this.isLoading = false,
     this.showSuggestions = true,
+    this.showImageAttachment = true,
   });
 
   @override
@@ -20,6 +26,8 @@ class InputBar extends StatefulWidget {
 
 class _InputBarState extends State<InputBar> {
   bool _showQuickActions = true;
+  Uint8List? _pendingImage;
+  String? _pendingImageName;
 
   static const List<_QuickAction> _quickActions = [
     _QuickAction('Explain', Icons.lightbulb_outline, 'Explain this concept: '),
@@ -53,6 +61,31 @@ class _InputBarState extends State<InputBar> {
       TextPosition(offset: widget.controller.text.length),
     );
     setState(() => _showQuickActions = false);
+  }
+
+  void _onImagePicked(Uint8List bytes, String? name) {
+    setState(() {
+      _pendingImage = bytes;
+      _pendingImageName = name;
+    });
+  }
+
+  void _clearPendingImage() {
+    setState(() {
+      _pendingImage = null;
+      _pendingImageName = null;
+    });
+  }
+
+  void _sendWithImage() {
+    if (_pendingImage != null && widget.onSendImage != null) {
+      final question = widget.controller.text.trim().isNotEmpty
+          ? widget.controller.text.trim()
+          : 'Explain this image';
+      widget.onSendImage!(_pendingImage!, question);
+      widget.controller.clear();
+      _clearPendingImage();
+    }
   }
 
   @override
@@ -92,18 +125,82 @@ class _InputBarState extends State<InputBar> {
                 ),
               ),
             
+            // Pending image preview
+            if (_pendingImage != null)
+              Container(
+                margin: const EdgeInsets.fromLTRB(8, 8, 8, 0),
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: colorScheme.surfaceContainerHighest,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  children: [
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: Image.memory(
+                        _pendingImage!,
+                        width: 60,
+                        height: 60,
+                        fit: BoxFit.cover,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            _pendingImageName ?? 'Image attached',
+                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                  fontWeight: FontWeight.w500,
+                                ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          Text(
+                            'Type a question or send to explain',
+                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                  color: colorScheme.onSurfaceVariant,
+                                ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close, size: 20),
+                      onPressed: _clearPendingImage,
+                      visualDensity: VisualDensity.compact,
+                    ),
+                  ],
+                ),
+              ),
+
             // Input row
             Padding(
               padding: const EdgeInsets.all(8),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
+                  // Image attachment button
+                  if (widget.showImageAttachment && 
+                      widget.onSendImage != null && 
+                      _pendingImage == null &&
+                      !widget.isLoading)
+                    ImagePickerButton(
+                      onImagePicked: _onImagePicked,
+                      icon: Icons.attach_file,
+                      tooltip: 'Attach image',
+                    ),
+                    
                   Expanded(
                     child: TextField(
                       controller: widget.controller,
                       enabled: !widget.isLoading,
                       decoration: InputDecoration(
-                        hintText: 'Ask a question...',
+                        hintText: _pendingImage != null 
+                            ? 'Ask about this image...'
+                            : 'Ask a question...',
                         filled: true,
                         fillColor: colorScheme.surfaceContainerHighest.withOpacity(0.5),
                         border: OutlineInputBorder(
@@ -122,23 +219,38 @@ class _InputBarState extends State<InputBar> {
                           horizontal: 16,
                           vertical: 12,
                         ),
-                        prefixIcon: Icon(
-                          Icons.auto_awesome,
-                          color: colorScheme.primary.withOpacity(0.7),
-                          size: 20,
-                        ),
+                        prefixIcon: _pendingImage == null
+                            ? Icon(
+                                Icons.auto_awesome,
+                                color: colorScheme.primary.withOpacity(0.7),
+                                size: 20,
+                              )
+                            : Icon(
+                                Icons.image,
+                                color: colorScheme.primary,
+                                size: 20,
+                              ),
                       ),
                       maxLines: 4,
                       minLines: 1,
                       textInputAction: TextInputAction.send,
-                      onSubmitted: (_) => widget.isLoading ? null : widget.onSend(),
+                      onSubmitted: (_) {
+                        if (widget.isLoading) return;
+                        if (_pendingImage != null) {
+                          _sendWithImage();
+                        } else {
+                          widget.onSend();
+                        }
+                      },
                     ),
                   ),
                   const SizedBox(width: 8),
                   AnimatedContainer(
                     duration: const Duration(milliseconds: 200),
                     child: FilledButton(
-                      onPressed: widget.isLoading ? null : widget.onSend,
+                      onPressed: widget.isLoading 
+                          ? null 
+                          : (_pendingImage != null ? _sendWithImage : widget.onSend),
                       style: FilledButton.styleFrom(
                         shape: const CircleBorder(),
                         padding: const EdgeInsets.all(12),

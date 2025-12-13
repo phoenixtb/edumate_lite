@@ -190,6 +190,30 @@ mixin _$MaterialStore on MaterialStoreBase, Store {
   }
 
   @override
+  void addTextMaterial({
+    required String title,
+    required String content,
+    String sourceType = 'text',
+    String? subject,
+    int? gradeLevel,
+  }) {
+    final _$actionInfo = _$MaterialStoreBaseActionController.startAction(
+      name: 'MaterialStoreBase.addTextMaterial',
+    );
+    try {
+      return super.addTextMaterial(
+        title: title,
+        content: content,
+        sourceType: sourceType,
+        subject: subject,
+        gradeLevel: gradeLevel,
+      );
+    } finally {
+      _$MaterialStoreBaseActionController.endAction(_$actionInfo);
+    }
+  }
+
+  @override
   String toString() {
     return '''
 materials: ${materials},

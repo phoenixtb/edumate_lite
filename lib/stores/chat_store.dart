@@ -1,8 +1,10 @@
+import 'dart:typed_data';
 import 'package:mobx/mobx.dart';
 import '../domain/entities/conversation.dart';
 import '../domain/entities/message.dart';
 import '../domain/services/rag_engine.dart';
 import '../domain/services/conversation_manager.dart';
+import '../domain/services/vision_service.dart';
 import '../domain/interfaces/inference_provider.dart';
 import '../core/prompts/prompt_templates.dart';
 import '../config/service_locator.dart';
@@ -189,11 +191,14 @@ abstract class ChatStoreBase with Store {
           confidence = response.confidenceScore;
 
           if (response.isComplete) {
+            // Post-process to remove hallucinated "not available" suffix
+            final cleanedContent = _cleanResponse(buffer.toString());
+            
             // Save assistant message
             final assistantMsgResult = await _conversationManager.addMessage(
               currentConversation!.id,
               role: 'assistant',
-              content: buffer.toString(),
+              content: cleanedContent,
               retrievedChunkIds: retrievedChunkIds,
               confidenceScore: confidence,
             );
@@ -211,6 +216,95 @@ abstract class ChatStoreBase with Store {
         isLoading = false;
       },
     );
+  }
+
+  /// Send a message with an attached image
+  @action
+  Future<void> sendImageMessage(Uint8List imageBytes, String question) async {
+    isLoading = true;
+    error = null;
+    currentResponse = '';
+
+    // Lazy creation: create conversation on first message
+    if (currentConversation == null) {
+      final result = await _conversationManager.createConversation(
+        title: 'New Chat',
+        materialId: null,
+      );
+
+      final created = result.fold(
+        (failure) {
+          error = failure.message;
+          isLoading = false;
+          return false;
+        },
+        (conversation) {
+          currentConversation = conversation;
+          return true;
+        },
+      );
+
+      if (!created) return;
+    }
+
+    final isFirstMessage = messages.isEmpty;
+
+    // Add user message with image indicator
+    final userMsgResult = await _conversationManager.addMessage(
+      currentConversation!.id,
+      role: 'user',
+      content: '📷 [Image attached]\n$question',
+    );
+
+    userMsgResult.fold(
+      (failure) {
+        error = failure.message;
+        isLoading = false;
+        return;
+      },
+      (userMessage) {
+        messages.add(userMessage);
+      },
+    );
+
+    // Generate title from first message (async)
+    if (isFirstMessage) {
+      _generateTitle(question);
+    }
+
+    // Use VisionService to answer about the image
+    try {
+      final buffer = StringBuffer();
+
+      await for (final chunk in VisionService.instance.answerQuestion(
+        imageBytes,
+        question,
+      )) {
+        buffer.write(chunk);
+        currentResponse = buffer.toString();
+      }
+
+      final cleanedContent = _cleanResponse(buffer.toString());
+
+      // Save assistant message
+      final assistantMsgResult = await _conversationManager.addMessage(
+        currentConversation!.id,
+        role: 'assistant',
+        content: cleanedContent,
+      );
+
+      assistantMsgResult.fold(
+        (failure) => error = failure.message,
+        (assistantMessage) {
+          messages.add(assistantMessage);
+          currentResponse = '';
+        },
+      );
+    } catch (e) {
+      error = 'Failed to process image: $e';
+    }
+
+    isLoading = false;
   }
 
   @action
@@ -394,6 +488,29 @@ abstract class ChatStoreBase with Store {
     } catch (e) {
       // Silently fail - title generation is not critical
     }
+  }
+
+  /// Clean up model response by removing hallucinated suffixes
+  /// The model sometimes appends "This information is not available" even after answering
+  String _cleanResponse(String response) {
+    // Patterns that indicate hallucinated "not available" suffix after actual content
+    final hallucinationPatterns = [
+      RegExp(r'\s*This information is not (available|in your|found).*$', caseSensitive: false),
+      RegExp(r"\s*I (could not|couldn't|cannot|can't) find.*materials?\.?\s*$", caseSensitive: false),
+      RegExp(r'\s*The (information|answer|topic).*not (available|covered|found).*$', caseSensitive: false),
+    ];
+
+    var cleaned = response.trim();
+    
+    // Only clean if there's substantial content before the hallucination
+    // (at least 100 chars suggests the model did answer something)
+    if (cleaned.length > 150) {
+      for (final pattern in hallucinationPatterns) {
+        cleaned = cleaned.replaceAll(pattern, '').trim();
+      }
+    }
+    
+    return cleaned;
   }
 }
 

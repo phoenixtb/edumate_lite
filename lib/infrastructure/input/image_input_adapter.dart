@@ -1,9 +1,8 @@
 import 'dart:io';
 import 'dart:typed_data';
 import 'package:image/image.dart' as img;
-import 'package:flutter_gemma/flutter_gemma.dart';
-import 'package:flutter_gemma/core/message.dart' as gemma_msg;
 import '../../domain/interfaces/input_source.dart';
+import '../../domain/services/vision_service.dart';
 import '../../core/errors/exceptions.dart';
 
 /// Image input adapter
@@ -173,57 +172,8 @@ class ImageInputAdapter implements InputSource {
     }
   }
 
-  /// Extract text from image using vision model
+  /// Extract text from image using VisionService
   Future<String> _extractTextWithVision(Uint8List imageBytes) async {
-    // Check if vision model is available
-    if (!FlutterGemma.hasActiveModel()) {
-      return '[Vision model not loaded yet - Load models first from home screen]';
-    }
-
-    const extractionPrompt =
-        '''Extract all text from this image. Preserve the structure including:
-- Headings and subheadings
-- Paragraphs
-- Lists (numbered or bulleted)
-- Tables (format as markdown)
-- Mathematical equations (use LaTeX notation)
-
-Return ONLY the extracted text, no commentary.''';
-
-    try {
-      // Get the active inference model with vision support
-      final model = await FlutterGemma.getActiveModel(
-        maxTokens: 1024,
-        supportImage: true,
-      );
-
-      // Create session with vision enabled
-      final session = await model.createSession(enableVisionModality: true);
-
-      // Add image + extraction prompt
-      await session.addQueryChunk(
-        gemma_msg.Message.withImage(
-          text: extractionPrompt,
-          imageBytes: imageBytes,
-        ),
-      );
-
-      // Get extracted text with timeout
-      final buffer = StringBuffer();
-      final stream = session.getResponseAsync();
-
-      await for (final chunk in stream) {
-        buffer.write(chunk);
-      }
-
-      // Close session
-      await session.close();
-
-      final result = buffer.toString().trim();
-      return result.isNotEmpty ? result : '[No text detected in image]';
-    } catch (e) {
-      // Return graceful fallback instead of throwing
-      return '[Text extraction failed: ${e.toString()}]';
-    }
+    return VisionService.instance.extractText(imageBytes);
   }
 }

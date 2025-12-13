@@ -81,6 +81,10 @@ abstract class MaterialStoreBase with Store {
           if (progress.error != null) {
             state.setError(progress.error!);
             error = progress.error;
+            // Remove failed job after delay so user can see error
+            Future.delayed(const Duration(seconds: 3), () {
+              processingJobs.remove(tempId);
+            });
             return;
           }
 
@@ -104,6 +108,10 @@ abstract class MaterialStoreBase with Store {
         onError: (e) {
           state.setError('Processing failed: $e');
           error = 'Processing failed: $e';
+          // Remove failed job after delay
+          Future.delayed(const Duration(seconds: 3), () {
+            processingJobs.remove(tempId);
+          });
         },
         cancelOnError: false,
       );
@@ -112,6 +120,10 @@ abstract class MaterialStoreBase with Store {
     } catch (e) {
       state.setError('Processing failed: $e');
       error = 'Processing failed: $e';
+      // Remove failed job after delay
+      Future.delayed(const Duration(seconds: 3), () {
+        processingJobs.remove(tempId);
+      });
     }
   }
 
@@ -160,6 +172,10 @@ abstract class MaterialStoreBase with Store {
           if (progress.error != null) {
             state.setError(progress.error!);
             error = progress.error;
+            // Remove failed job after delay
+            Future.delayed(const Duration(seconds: 3), () {
+              processingJobs.remove(tempId);
+            });
             return;
           }
 
@@ -179,12 +195,20 @@ abstract class MaterialStoreBase with Store {
         onError: (e) {
           state.setError('Reprocessing failed: $e');
           error = 'Reprocessing failed: $e';
+          // Remove failed job after delay
+          Future.delayed(const Duration(seconds: 3), () {
+            processingJobs.remove(tempId);
+          });
         },
         cancelOnError: false,
       );
     } catch (e) {
       state.setError('Reprocessing failed: $e');
       error = 'Reprocessing failed: $e';
+      // Remove failed job after delay
+      Future.delayed(const Duration(seconds: 3), () {
+        processingJobs.remove(tempId);
+      });
     }
   }
 
@@ -209,5 +233,26 @@ abstract class MaterialStoreBase with Store {
   
   @computed
   int get processingJobsCount => processingJobs.length;
+
+  /// Add text content as a material (for scanned notes, etc.)
+  /// This uses the text input adapter which directly processes the string
+  @action
+  void addTextMaterial({
+    required String title,
+    required String content,
+    String sourceType = 'text',
+    String? subject,
+    int? gradeLevel,
+  }) {
+    final input = MaterialInput(
+      title: title,
+      sourceType: sourceType,
+      content: content, // TextInputAdapter handles raw strings
+      subject: subject,
+      gradeLevel: gradeLevel,
+    );
+    
+    processMaterial(input);
+  }
 }
 

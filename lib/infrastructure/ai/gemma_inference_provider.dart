@@ -1,21 +1,29 @@
 import 'dart:typed_data';
+import 'package:flutter/services.dart' show PlatformException;
 import 'package:flutter_gemma/flutter_gemma.dart';
 import 'package:flutter_gemma/core/message.dart' as gemma_msg;
 import '../../domain/interfaces/inference_provider.dart';
 import '../../domain/entities/message.dart' as app_entities;
 import '../../core/errors/exceptions.dart';
+import '../../core/constants/app_constants.dart';
+import 'gemma_session_manager.dart';
 
 /// Gemma-based inference provider using Gemma 3 Nano E2B
+/// Uses GemmaSessionManager to coordinate with VisionService
 class GemmaInferenceProvider implements InferenceProvider {
   bool _isReady = false;
   InferenceModel? _inferenceModel;
-  InferenceModelSession? _currentSession;
+  
+  static const _sessionUser = 'InferenceProvider';
 
   @override
   String get modelId => 'Gemma-3-Nano-E2B';
 
   @override
   bool get isReady => _isReady;
+  
+  /// Check if inference is available (model ready AND not busy)
+  bool get isAvailable => _isReady && !GemmaSessionManager.instance.isBusy;
 
   @override
   bool get supportsVision => true;
@@ -33,7 +41,7 @@ class GemmaInferenceProvider implements InferenceProvider {
         _inferenceModel = await FlutterGemma.getActiveModel(
           maxTokens: 2048,
           supportImage: true,
-          preferredBackend: PreferredBackend.gpu, // Use GPU if available
+          preferredBackend: PreferredBackend.gpu,
         );
         _isReady = true;
       } catch (e) {
@@ -46,10 +54,7 @@ class GemmaInferenceProvider implements InferenceProvider {
           );
           _isReady = true;
         } catch (e2) {
-          throw ModelException(
-            'Failed to create model instance. '
-            'Error: $e',
-          );
+          throw ModelException('Failed to create model instance. Error: $e');
         }
       }
     } catch (e) {
@@ -69,9 +74,25 @@ class GemmaInferenceProvider implements InferenceProvider {
       throw ModelException('Inference provider not initialized');
     }
 
+    // Acquire shared session lock
+    final acquired = await GemmaSessionManager.instance.acquire(
+      _sessionUser,
+      timeout: const Duration(seconds: 120), // Longer timeout for generation
+    );
+    
+    if (!acquired) {
+      throw ModelException(
+        'AI is busy with another request (${GemmaSessionManager.instance.currentUser}). Please wait and try again.',
+      );
+    }
+
+    InferenceModelSession? session;
     try {
-      // Create new session for this query
-      final session = await _inferenceModel!.createSession();
+      // Create new session with optimized sampling parameters
+      session = await _inferenceModel!.createSession(
+        temperature: AppConstants.inferenceTemperature,
+        topK: AppConstants.inferenceSamplingTopK,
+      );
 
       // Build the full prompt
       final fullPrompt = _buildPrompt(
@@ -94,11 +115,23 @@ class GemmaInferenceProvider implements InferenceProvider {
           yield chunk;
         }
       }
-
-      // Close session
-      await session.close();
+    } on PlatformException catch (e) {
+      if (e.message?.contains('Previous invocation still processing') == true) {
+        // Force release - something is stuck
+        GemmaSessionManager.instance.forceRelease();
+        throw ModelException('AI session conflict. Please try again.');
+      }
+      throw ModelException('Generation failed: $e');
     } catch (e) {
       throw ModelException('Generation failed: $e');
+    } finally {
+      // Always cleanup
+      if (session != null) {
+        try {
+          await session.close();
+        } catch (_) {}
+      }
+      GemmaSessionManager.instance.release(_sessionUser);
     }
   }
 
@@ -116,9 +149,22 @@ class GemmaInferenceProvider implements InferenceProvider {
       throw ModelException('Model does not support vision');
     }
 
+    // Acquire shared session lock
+    final acquired = await GemmaSessionManager.instance.acquire(
+      _sessionUser,
+      timeout: const Duration(seconds: 120),
+    );
+    
+    if (!acquired) {
+      throw ModelException(
+        'AI is busy with another request (${GemmaSessionManager.instance.currentUser}). Please wait and try again.',
+      );
+    }
+
+    InferenceModelSession? session;
     try {
       // Create session with vision enabled
-      final session = await _inferenceModel!.createSession(
+      session = await _inferenceModel!.createSession(
         enableVisionModality: true,
       );
 
@@ -138,19 +184,30 @@ class GemmaInferenceProvider implements InferenceProvider {
           yield chunk;
         }
       }
-
-      // Close session
-      await session.close();
+    } on PlatformException catch (e) {
+      if (e.message?.contains('Previous invocation still processing') == true) {
+        GemmaSessionManager.instance.forceRelease();
+        throw ModelException('AI session conflict. Please try again.');
+      }
+      throw ModelException('Image generation failed: $e');
     } catch (e) {
       throw ModelException('Image generation failed: $e');
+    } finally {
+      // Always cleanup
+      if (session != null) {
+        try {
+          await session.close();
+        } catch (_) {}
+      }
+      GemmaSessionManager.instance.release(_sessionUser);
     }
   }
 
   @override
   Future<void> dispose() async {
-    if (_currentSession != null) {
-      await _currentSession!.close();
-      _currentSession = null;
+    // Release any held lock
+    if (GemmaSessionManager.instance.currentUser == _sessionUser) {
+      GemmaSessionManager.instance.release(_sessionUser);
     }
     _isReady = false;
     _inferenceModel = null;
@@ -193,5 +250,3 @@ class GemmaInferenceProvider implements InferenceProvider {
     return buffer.toString();
   }
 }
-
-

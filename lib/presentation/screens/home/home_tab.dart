@@ -1,10 +1,15 @@
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_mobx/flutter_mobx.dart';
 import '../../../config/service_locator.dart';
 import '../../../stores/app_store.dart';
 import '../../../stores/material_store.dart';
+import '../../../domain/services/vision_service.dart';
 import '../../widgets/material/processing_progress_card.dart';
+import '../../widgets/common/image_picker_button.dart';
+import '../../widgets/common/ocr_result_sheet.dart';
 import '../shell/app_shell.dart';
+import '../chat/chat_screen.dart';
 
 class HomeTab extends StatelessWidget {
   const HomeTab({super.key});
@@ -235,11 +240,11 @@ class HomeTab extends StatelessWidget {
                   onTap: () => _showComingSoon(context),
                 ),
                 _ActionCard(
-                  icon: Icons.summarize_outlined,
-                  title: 'Summarize',
-                  subtitle: 'Coming soon',
+                  icon: Icons.document_scanner_outlined,
+                  title: 'Scan Notes',
+                  subtitle: 'OCR from image',
                   color: Colors.teal,
-                  onTap: () => _showComingSoon(context),
+                  onTap: () => _openScanNotes(context),
                 ),
               ]),
             ),
@@ -344,6 +349,152 @@ class HomeTab extends StatelessWidget {
       const SnackBar(
         content: Text('This feature is coming soon!'),
         behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
+  void _openScanNotes(BuildContext context) {
+    // Use ImagePickerButton's functionality inline
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Theme.of(context).colorScheme.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 32,
+                height: 4,
+                margin: const EdgeInsets.only(bottom: 16),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant.withOpacity(0.3),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              Text(
+                'Scan Handwritten Notes',
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Take a photo or select an image to extract text',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+              ),
+              const SizedBox(height: 24),
+              ImagePickerButton(
+                onImagePicked: (bytes, name) {
+                  Navigator.pop(ctx);
+                  _processScannedImage(context, bytes);
+                },
+                child: Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 16),
+                  padding: const EdgeInsets.all(24),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.primaryContainer,
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.camera_alt,
+                        size: 32,
+                        color: Theme.of(context).colorScheme.onPrimaryContainer,
+                      ),
+                      const SizedBox(width: 16),
+                      Text(
+                        'Select Image',
+                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                              color: Theme.of(context).colorScheme.onPrimaryContainer,
+                              fontWeight: FontWeight.w500,
+                            ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _processScannedImage(BuildContext context, Uint8List imageBytes) async {
+    // Show loading sheet
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      isDismissible: false,
+      enableDrag: false,
+      backgroundColor: Colors.transparent,
+      builder: (_) => const OCRResultSheet(
+        extractedText: '',
+        isLoading: true,
+      ),
+    );
+
+    // Extract text using VisionService
+    final extractedText = await VisionService.instance.extractText(imageBytes);
+
+    // Close loading sheet and show result
+    if (context.mounted) {
+      Navigator.pop(context);
+      
+      OCRResultSheet.show(
+        context,
+        extractedText: extractedText,
+        onSave: (title, content) {
+          // Add scanned text as material
+          _saveScannedMaterial(context, title, content);
+        },
+        onStartChat: (text) {
+          // Navigate to chat with the extracted text as context
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => const ChatScreen(),
+            ),
+          );
+        },
+      );
+    }
+  }
+
+  void _saveScannedMaterial(BuildContext context, String title, String content) {
+    final materialStore = getIt<MaterialStore>();
+    
+    // Add text content as material (uses the text input adapter flow)
+    materialStore.addTextMaterial(
+      title: title,
+      content: content,
+      sourceType: 'text', // Uses TextInputAdapter
+    );
+    
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            const Icon(Icons.check, color: Colors.white, size: 18),
+            const SizedBox(width: 8),
+            Expanded(child: Text('Saved "$title" to materials')),
+          ],
+        ),
+        behavior: SnackBarBehavior.floating,
+        action: SnackBarAction(
+          label: 'View',
+          onPressed: () => _goToTab(context, 3), // Go to Library
+        ),
       ),
     );
   }

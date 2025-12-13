@@ -188,6 +188,18 @@ mixin _$ChatStore on ChatStoreBase, Store {
     return _$sendMessageAsyncAction.run(() => super.sendMessage(content));
   }
 
+  late final _$sendImageMessageAsyncAction = AsyncAction(
+    'ChatStoreBase.sendImageMessage',
+    context: context,
+  );
+
+  @override
+  Future<void> sendImageMessage(Uint8List imageBytes, String question) {
+    return _$sendImageMessageAsyncAction.run(
+      () => super.sendImageMessage(imageBytes, question),
+    );
+  }
+
   late final _$loadConversationsAsyncAction = AsyncAction(
     'ChatStoreBase.loadConversations',
     context: context,

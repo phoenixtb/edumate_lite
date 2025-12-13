@@ -3,12 +3,16 @@ import '../../domain/interfaces/embedding_provider.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/errors/exceptions.dart';
 import '../../core/utils/logger.dart';
+import 'gemma_session_manager.dart';
 
 /// Gemma-based embedding provider using EmbeddingGemma-300M (2048 tokens)
 /// Uses Google's RAG library via embedding_gemma package
+/// Note: embedding_gemma internally uses LLM sessions, so must coordinate with inference
 class GemmaEmbeddingProvider implements EmbeddingProvider {
   bool _isReady = false;
   EmbeddingGemma? _embeddingModel;
+
+  static const _sessionUser = 'EmbeddingProvider';
 
   @override
   String get modelId => 'EmbeddingGemma-300M-2048';
@@ -99,6 +103,18 @@ class GemmaEmbeddingProvider implements EmbeddingProvider {
       throw ModelException('Text cannot be empty');
     }
 
+    // Acquire shared session lock - embedding uses same LLM session internally
+    final acquired = await GemmaSessionManager.instance.acquire(
+      _sessionUser,
+      timeout: const Duration(seconds: 60),
+    );
+
+    if (!acquired) {
+      throw ModelException(
+        'AI is busy (${GemmaSessionManager.instance.currentUser}). Please wait.',
+      );
+    }
+
     try {
       AppLogger.debug(
         '📝 Generating document embedding (length: ${text.length})',
@@ -119,6 +135,8 @@ class GemmaEmbeddingProvider implements EmbeddingProvider {
     } catch (e, stackTrace) {
       AppLogger.error('❌ Embedding generation failed', e, stackTrace);
       throw ModelException('Embedding generation failed: $e');
+    } finally {
+      GemmaSessionManager.instance.release(_sessionUser);
     }
   }
 
@@ -132,6 +150,18 @@ class GemmaEmbeddingProvider implements EmbeddingProvider {
     if (query.isEmpty) {
       AppLogger.warning('⚠️  Empty query provided to embedQuery()');
       throw ModelException('Query cannot be empty');
+    }
+
+    // Acquire shared session lock - embedding uses same LLM session internally
+    final acquired = await GemmaSessionManager.instance.acquire(
+      _sessionUser,
+      timeout: const Duration(seconds: 60),
+    );
+
+    if (!acquired) {
+      throw ModelException(
+        'AI is busy (${GemmaSessionManager.instance.currentUser}). Please wait.',
+      );
     }
 
     try {
@@ -154,6 +184,8 @@ class GemmaEmbeddingProvider implements EmbeddingProvider {
     } catch (e, stackTrace) {
       AppLogger.error('❌ Query embedding generation failed', e, stackTrace);
       throw ModelException('Query embedding generation failed: $e');
+    } finally {
+      GemmaSessionManager.instance.release(_sessionUser);
     }
   }
 
@@ -169,6 +201,18 @@ class GemmaEmbeddingProvider implements EmbeddingProvider {
     if (texts.isEmpty) {
       AppLogger.warning('⚠️  Empty text list provided to embedBatch()');
       throw ModelException('Text list cannot be empty');
+    }
+
+    // Acquire shared session lock - embedding uses same LLM session internally
+    final acquired = await GemmaSessionManager.instance.acquire(
+      _sessionUser,
+      timeout: const Duration(seconds: 300), // Longer timeout for batch
+    );
+
+    if (!acquired) {
+      throw ModelException(
+        'AI is busy (${GemmaSessionManager.instance.currentUser}). Please wait.',
+      );
     }
 
     try {
@@ -197,11 +241,17 @@ class GemmaEmbeddingProvider implements EmbeddingProvider {
         stackTrace,
       );
       throw ModelException('Batch embedding generation failed: $e');
+    } finally {
+      GemmaSessionManager.instance.release(_sessionUser);
     }
   }
 
   @override
   Future<void> dispose() async {
+    // Release any held lock
+    if (GemmaSessionManager.instance.currentUser == _sessionUser) {
+      GemmaSessionManager.instance.release(_sessionUser);
+    }
     _isReady = false;
     if (_embeddingModel != null) {
       _embeddingModel!.dispose();

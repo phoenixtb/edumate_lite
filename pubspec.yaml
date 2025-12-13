@@ -92,9 +92,12 @@ flutter:
 
   # AI Models (bundled for offline use)
   # NOTE: Download models first using: ./scripts/download_models.sh
-  # Models will be packaged with the app (~4GB total)
+  # Models will be packaged with the app (~3.3GB total)
+  # Phi-4 model excluded from bundle - to be downloaded at runtime in future
   assets:
-    - assets/models/
+    - assets/models/embeddinggemma-300M_seq2048_mixed-precision.tflite
+    - assets/models/gemma-3n-E2B-it-int4.task
+    - assets/models/sentencepiece.model
     - assets/sample_docs/
     - test/fixtures/
 

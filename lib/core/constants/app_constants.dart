@@ -31,9 +31,13 @@ class AppConstants {
   static const int chunkOverlapTokens = 150; // Overlap for continuity
 
   // RAG Configuration
-  static const int retrievalTopK = 5;
+  static const int retrievalTopK = 3; // Reduced from 5 for better focus
   static const double similarityThreshold = 0.5;
   static const int maxContextTokens = 2000;
+
+  // Inference Sampling Configuration
+  static const double inferenceTemperature = 0.4; // Lower for factual accuracy (default 0.8)
+  static const int inferenceSamplingTopK = 20; // Sampling diversity
 
   // Conversation Configuration
   static const int maxContextMessages = 6;
