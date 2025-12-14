@@ -16,6 +16,13 @@ mixin _$AppStore on AppStoreBase, Store {
     () => super.isAppReady,
     name: 'AppStoreBase.isAppReady',
   )).value;
+  Computed<bool>? _$shouldUsePhi4Computed;
+
+  @override
+  bool get shouldUsePhi4 => (_$shouldUsePhi4Computed ??= Computed<bool>(
+    () => super.shouldUsePhi4,
+    name: 'AppStoreBase.shouldUsePhi4',
+  )).value;
 
   late final _$themeModeAtom = Atom(
     name: 'AppStoreBase.themeMode',
@@ -97,6 +104,42 @@ mixin _$AppStore on AppStoreBase, Store {
     );
   }
 
+  late final _$isPhi4ModelReadyAtom = Atom(
+    name: 'AppStoreBase.isPhi4ModelReady',
+    context: context,
+  );
+
+  @override
+  bool get isPhi4ModelReady {
+    _$isPhi4ModelReadyAtom.reportRead();
+    return super.isPhi4ModelReady;
+  }
+
+  @override
+  set isPhi4ModelReady(bool value) {
+    _$isPhi4ModelReadyAtom.reportWrite(value, super.isPhi4ModelReady, () {
+      super.isPhi4ModelReady = value;
+    });
+  }
+
+  late final _$preferPhi4ForTextAtom = Atom(
+    name: 'AppStoreBase.preferPhi4ForText',
+    context: context,
+  );
+
+  @override
+  bool get preferPhi4ForText {
+    _$preferPhi4ForTextAtom.reportRead();
+    return super.preferPhi4ForText;
+  }
+
+  @override
+  set preferPhi4ForText(bool value) {
+    _$preferPhi4ForTextAtom.reportWrite(value, super.preferPhi4ForText, () {
+      super.preferPhi4ForText = value;
+    });
+  }
+
   late final _$devModeEnabledAtom = Atom(
     name: 'AppStoreBase.devModeEnabled',
     context: context,
@@ -113,6 +156,16 @@ mixin _$AppStore on AppStoreBase, Store {
     _$devModeEnabledAtom.reportWrite(value, super.devModeEnabled, () {
       super.devModeEnabled = value;
     });
+  }
+
+  late final _$loadPreferencesAsyncAction = AsyncAction(
+    'AppStoreBase.loadPreferences',
+    context: context,
+  );
+
+  @override
+  Future<void> loadPreferences() {
+    return _$loadPreferencesAsyncAction.run(() => super.loadPreferences());
   }
 
   late final _$AppStoreBaseActionController = ActionController(
@@ -181,14 +234,41 @@ mixin _$AppStore on AppStoreBase, Store {
   }
 
   @override
+  void setPhi4ModelReady(bool value) {
+    final _$actionInfo = _$AppStoreBaseActionController.startAction(
+      name: 'AppStoreBase.setPhi4ModelReady',
+    );
+    try {
+      return super.setPhi4ModelReady(value);
+    } finally {
+      _$AppStoreBaseActionController.endAction(_$actionInfo);
+    }
+  }
+
+  @override
+  void setPreferPhi4ForText(bool value) {
+    final _$actionInfo = _$AppStoreBaseActionController.startAction(
+      name: 'AppStoreBase.setPreferPhi4ForText',
+    );
+    try {
+      return super.setPreferPhi4ForText(value);
+    } finally {
+      _$AppStoreBaseActionController.endAction(_$actionInfo);
+    }
+  }
+
+  @override
   String toString() {
     return '''
 themeMode: ${themeMode},
 isModelsDownloaded: ${isModelsDownloaded},
 isEmbeddingModelReady: ${isEmbeddingModelReady},
 isInferenceModelReady: ${isInferenceModelReady},
+isPhi4ModelReady: ${isPhi4ModelReady},
+preferPhi4ForText: ${preferPhi4ForText},
 devModeEnabled: ${devModeEnabled},
-isAppReady: ${isAppReady}
+isAppReady: ${isAppReady},
+shouldUsePhi4: ${shouldUsePhi4}
     ''';
   }
 }

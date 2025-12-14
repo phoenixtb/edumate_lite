@@ -15,6 +15,21 @@ class AppConstants {
   static const String inferenceModelAsset =
       'assets/models/gemma-3n-E2B-it-int4.task';
 
+  // Phi-4 Mini Instruct (text-only, enhanced quality)
+  // From: litert-community/Phi-4-mini-instruct (PUBLIC - no auth needed)
+  // NOTE: Phi-4 has issues with MediaPipe template handling - use DeepSeek instead
+  static const String phi4ModelUrl =
+      'https://huggingface.co/litert-community/Phi-4-mini-instruct/resolve/main/Phi-4-mini-instruct_multi-prefill-seq_q8_ekv4096.task';
+  static const String phi4ModelName = 'Phi-4-mini-instruct';
+  static const int phi4ModelSizeMb = 2500; // ~2.5GB
+
+  // DeepSeek R1 Distill Qwen 1.5B (text-only, with thinking mode)
+  // From: litert-community/DeepSeek-R1-Distill-Qwen-1.5B (PUBLIC - no auth needed)
+  static const String deepseekModelUrl =
+      'https://huggingface.co/litert-community/DeepSeek-R1-Distill-Qwen-1.5B/resolve/main/deepseek_q8_ekv1280.task';
+  static const String deepseekModelName = 'DeepSeek-R1';
+  static const int deepseekModelSizeMb = 1700; // ~1.7GB
+
   static const int embeddingDimension = 768;
   static const int maxEmbeddingTokens =
       2048; // EmbeddingGemma supports 2048 tokens

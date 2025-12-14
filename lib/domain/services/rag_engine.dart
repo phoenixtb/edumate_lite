@@ -1,19 +1,20 @@
 import 'package:dartz/dartz.dart';
 import '../interfaces/embedding_provider.dart';
 import '../interfaces/vector_store.dart';
-import '../interfaces/inference_provider.dart';
 import '../entities/message.dart';
 import '../../core/errors/failures.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/utils/token_estimator.dart';
 import '../../core/prompts/prompt_templates.dart';
+import '../../infrastructure/ai/model_manager.dart';
+import 'inference_router.dart';
 
 /// RAG (Retrieval-Augmented Generation) Engine
 /// Orchestrates retrieval and generation for Q&A
 class RagEngine {
   final EmbeddingProvider embeddingProvider;
   final VectorStore vectorStore;
-  final InferenceProvider inferenceProvider;
+  final InferenceRouter inferenceRouter;
 
   /// Configuration
   final int retrievalTopK;
@@ -23,7 +24,7 @@ class RagEngine {
   RagEngine({
     required this.embeddingProvider,
     required this.vectorStore,
-    required this.inferenceProvider,
+    required this.inferenceRouter,
     this.retrievalTopK = AppConstants.retrievalTopK,
     this.similarityThreshold = AppConstants.similarityThreshold,
     this.maxContextTokens = AppConstants.maxContextTokens,
@@ -47,8 +48,8 @@ class RagEngine {
         return Left(ModelFailure('Embedding provider not ready'));
       }
 
-      if (!inferenceProvider.isReady) {
-        return Left(ModelFailure('Inference provider not ready'));
+      if (ModelManager.instance.activeModel == ActiveModelType.none) {
+        return Left(ModelFailure('Inference model not loaded'));
       }
 
       // Generate query embedding (optimized for retrieval)
@@ -111,8 +112,8 @@ class RagEngine {
         return Left(ProcessingFailure('No materials specified'));
       }
 
-      if (!inferenceProvider.isReady) {
-        return Left(ModelFailure('Inference provider not ready'));
+      if (ModelManager.instance.activeModel == ActiveModelType.none) {
+        return Left(ModelFailure('Inference model not loaded'));
       }
 
       // Retrieve sample chunks from materials
@@ -139,7 +140,7 @@ class RagEngine {
         'difficulty': difficulty ?? 'medium',
       });
 
-      final responseStream = inferenceProvider.generate(
+      final responseStream = inferenceRouter.generate(
         systemPrompt: quizTemplate.systemPrompt,
         context: formattedContext,
         query: quizPrompt,
@@ -261,8 +262,8 @@ class RagEngine {
     final formattedContext = qaTemplate.formatContext(context);
     final userPrompt = qaTemplate.buildPrompt({'query': query});
 
-    // Stream the actual response
-    final responseStream = inferenceProvider.generate(
+    // Stream the actual response via router (handles model switching)
+    final responseStream = inferenceRouter.generate(
       systemPrompt: qaTemplate.systemPrompt,
       context: formattedContext,
       query: userPrompt,
@@ -342,8 +343,8 @@ Would you like to:
         return Left(ProcessingFailure('No materials specified'));
       }
 
-      if (!inferenceProvider.isReady) {
-        return Left(ModelFailure('Inference provider not ready'));
+      if (ModelManager.instance.activeModel == ActiveModelType.none) {
+        return Left(ModelFailure('Inference model not loaded'));
       }
 
       // Retrieve chunks from materials
@@ -367,7 +368,7 @@ Would you like to:
         'maxPoints': maxPoints,
       });
 
-      final responseStream = inferenceProvider.generate(
+      final responseStream = inferenceRouter.generate(
         systemPrompt: summaryTemplate.systemPrompt,
         context: formattedContext,
         query: summaryPrompt,
@@ -389,8 +390,8 @@ Would you like to:
         return Left(ModelFailure('Embedding provider not ready'));
       }
 
-      if (!inferenceProvider.isReady) {
-        return Left(ModelFailure('Inference provider not ready'));
+      if (ModelManager.instance.activeModel == ActiveModelType.none) {
+        return Left(ModelFailure('Inference model not loaded'));
       }
 
       // Generate embedding for the concept
@@ -415,7 +416,7 @@ Would you like to:
       final formattedContext = explainTemplate.formatContext(context);
       final explainPrompt = explainTemplate.buildPrompt({'concept': concept});
 
-      final responseStream = inferenceProvider.generate(
+      final responseStream = inferenceRouter.generate(
         systemPrompt: explainTemplate.systemPrompt,
         context: formattedContext,
         query: explainPrompt,

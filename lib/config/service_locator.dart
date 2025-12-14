@@ -2,17 +2,16 @@ import 'package:get_it/get_it.dart';
 import '../infrastructure/database/objectbox.dart';
 import '../infrastructure/database/objectbox_vector_store.dart';
 import '../infrastructure/ai/gemma_embedding_provider.dart';
-import '../infrastructure/ai/gemma_inference_provider.dart';
 import '../infrastructure/chunking/token_validated_chunking_strategy.dart';
 import '../infrastructure/input/pdf_input_adapter.dart';
 import '../infrastructure/input/image_input_adapter.dart';
 import '../infrastructure/input/camera_input_adapter.dart';
 import '../infrastructure/input/text_input_adapter.dart';
-import '../domain/interfaces/inference_provider.dart';
 import '../domain/services/rag_engine.dart';
 import '../domain/services/conversation_manager.dart';
 import '../domain/services/material_processor.dart';
 import '../domain/services/ai_initialization_service.dart';
+import '../domain/services/inference_router.dart';
 import '../stores/app_store.dart';
 import '../stores/chat_store.dart';
 import '../stores/material_store.dart';
@@ -37,15 +36,6 @@ Future<void> setupServiceLocator() async {
     () => GemmaEmbeddingProvider(),
   );
 
-  getIt.registerLazySingleton<GemmaInferenceProvider>(
-    () => GemmaInferenceProvider(),
-  );
-
-  // Register interface for InferenceProvider
-  getIt.registerLazySingleton<InferenceProvider>(
-    () => getIt<GemmaInferenceProvider>(),
-  );
-
   // Infrastructure - Chunking (requires embedding provider for token counting)
   getIt.registerLazySingleton<TokenValidatedChunkingStrategy>(
     () => TokenValidatedChunkingStrategy(
@@ -59,11 +49,16 @@ Future<void> setupServiceLocator() async {
   getIt.registerLazySingleton<CameraInputAdapter>(() => CameraInputAdapter());
   getIt.registerLazySingleton<TextInputAdapter>(() => TextInputAdapter());
 
+  // Inference Router (routes between Phi-4 and Gemma, manages model switching)
+  getIt.registerLazySingleton<InferenceRouter>(
+    () => InferenceRouter(),
+  );
+
   // AI Initialization Service
   getIt.registerLazySingleton<AiInitializationService>(
     () => AiInitializationService(
       embeddingProvider: getIt<GemmaEmbeddingProvider>(),
-      inferenceProvider: getIt<GemmaInferenceProvider>(),
+      inferenceRouter: getIt<InferenceRouter>(),
     ),
   );
 
@@ -72,7 +67,7 @@ Future<void> setupServiceLocator() async {
     () => RagEngine(
       embeddingProvider: getIt<GemmaEmbeddingProvider>(),
       vectorStore: getIt<ObjectBoxVectorStore>(),
-      inferenceProvider: getIt<GemmaInferenceProvider>(),
+      inferenceRouter: getIt<InferenceRouter>(),
     ),
   );
 

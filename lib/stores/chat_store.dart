@@ -5,7 +5,7 @@ import '../domain/entities/message.dart';
 import '../domain/services/rag_engine.dart';
 import '../domain/services/conversation_manager.dart';
 import '../domain/services/vision_service.dart';
-import '../domain/interfaces/inference_provider.dart';
+import '../domain/services/inference_router.dart';
 import '../core/prompts/prompt_templates.dart';
 import '../config/service_locator.dart';
 
@@ -16,7 +16,7 @@ class ChatStore = ChatStoreBase with _$ChatStore;
 abstract class ChatStoreBase with Store {
   final RagEngine _ragEngine = getIt<RagEngine>();
   final ConversationManager _conversationManager = getIt<ConversationManager>();
-  final InferenceProvider _inferenceProvider = getIt<InferenceProvider>();
+  final InferenceRouter _inferenceRouter = getIt<InferenceRouter>();
 
   @observable
   Conversation? currentConversation;
@@ -155,12 +155,7 @@ abstract class ChatStoreBase with Store {
       },
     );
 
-    // Generate title from first message (async, don't wait)
-    if (isFirstMessage) {
-      _generateTitle(content);
-    }
-
-    // Get RAG response
+    // Get RAG response first
     final ragResult = await _ragEngine.answer(
       content,
       materialIds: selectedMaterialIds,
@@ -214,6 +209,14 @@ abstract class ChatStoreBase with Store {
         }
 
         isLoading = false;
+        
+        // Generate title AFTER response is complete with a delay
+        // to ensure the previous session is fully closed
+        if (isFirstMessage) {
+          Future.delayed(const Duration(seconds: 2), () {
+            _generateTitle(content);
+          });
+        }
       },
     );
   }
@@ -267,11 +270,6 @@ abstract class ChatStoreBase with Store {
       },
     );
 
-    // Generate title from first message (async)
-    if (isFirstMessage) {
-      _generateTitle(question);
-    }
-
     // Use VisionService to answer about the image
     try {
       final buffer = StringBuffer();
@@ -300,6 +298,11 @@ abstract class ChatStoreBase with Store {
           currentResponse = '';
         },
       );
+      
+      // Generate title AFTER response is complete
+      if (isFirstMessage) {
+        _generateTitle(question);
+      }
     } catch (e) {
       error = 'Failed to process image: $e';
     }
@@ -446,7 +449,7 @@ abstract class ChatStoreBase with Store {
 
   /// Generate a short title from the first message using LLM
   Future<void> _generateTitle(String firstMessage) async {
-    if (currentConversation == null || !_inferenceProvider.isReady) return;
+    if (currentConversation == null || !_inferenceRouter.isReady) return;
     
     // Skip if title is already set (not "New Chat")
     if (currentConversation!.title != 'New Chat') return;
@@ -455,7 +458,7 @@ abstract class ChatStoreBase with Store {
       final titleTemplate = PromptFactory.get(PromptType.title);
       final titleBuffer = StringBuffer();
       
-      await for (final chunk in _inferenceProvider.generate(
+      await for (final chunk in _inferenceRouter.generate(
         systemPrompt: titleTemplate.systemPrompt,
         context: '',
         query: titleTemplate.buildPrompt({'message': firstMessage}),

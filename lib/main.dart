@@ -15,6 +15,10 @@ void main() async {
   // Setup dependency injection
   await setupServiceLocator();
 
+  // Load persisted user preferences
+  final appStore = getIt<AppStore>();
+  await appStore.loadPreferences();
+
   runApp(const MyApp());
 }
 

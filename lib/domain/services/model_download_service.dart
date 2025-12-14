@@ -1,4 +1,5 @@
 import 'package:dartz/dartz.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
 import 'package:embedding_gemma/embedding_gemma.dart';
 import '../../core/errors/failures.dart';
@@ -70,11 +71,17 @@ class ModelDownloadService {
   /// Check if models are already downloaded
   Future<bool> checkModelsDownloaded() async {
     try {
+      debugPrint('🔷 [ModelDownload] checkModelsDownloaded started');
+      
       // Check if embedding model is installed (same pattern as flutter_gemma)
+      debugPrint('🔷 [ModelDownload] Checking embedding model...');
       final hasEmbedding = await EmbeddingGemma.hasActiveModel();
+      debugPrint('🔷 [ModelDownload] hasEmbedding = $hasEmbedding');
       
       // Check if inference model exists in flutter_gemma registry
+      debugPrint('🔷 [ModelDownload] Checking inference model...');
       final hasInference = FlutterGemma.hasActiveModel();
+      debugPrint('🔷 [ModelDownload] hasInference = $hasInference');
 
       if (hasEmbedding) {
         downloadStore.setEmbeddingStatus(ModelDownloadStatus.completed);
@@ -84,8 +91,10 @@ class ModelDownloadService {
         downloadStore.setInferenceStatus(ModelDownloadStatus.completed);
       }
 
+      debugPrint('🔷 [ModelDownload] checkModelsDownloaded done: ${hasEmbedding && hasInference}');
       return hasEmbedding && hasInference;
     } catch (e) {
+      debugPrint('❌ [ModelDownload] checkModelsDownloaded error: $e');
       return false;
     }
   }
@@ -106,6 +115,62 @@ class ModelDownloadService {
       return const Right(unit);
     } catch (e) {
       return Left(StorageFailure('Failed to delete model: $e'));
+    }
+  }
+
+  /// Download DeepSeek from HuggingFace (for better text reasoning with thinking mode)
+  /// Note: This reuses the Phi-4 UI state for backwards compatibility
+  Future<Either<Failure, Unit>> downloadPhi4Model() async {
+    try {
+      downloadStore.setPhi4Status(ModelDownloadStatus.downloading);
+      downloadStore.setPhi4Progress(0.0);
+
+      await FlutterGemma.installModel(
+        modelType: ModelType.deepSeek, // DeepSeek uses proper model type
+      )
+          .fromNetwork(AppConstants.deepseekModelUrl)
+          .withProgress((progress) {
+            Future.microtask(() {
+              downloadStore.setPhi4Progress(progress / 100);
+            });
+          })
+          .install();
+
+      downloadStore.setPhi4Status(ModelDownloadStatus.completed);
+      return const Right(unit);
+    } catch (e) {
+      downloadStore.setPhi4Status(ModelDownloadStatus.failed);
+      downloadStore.setPhi4Error(e.toString());
+      return Left(NetworkFailure('Failed to download Phi-4: $e'));
+    }
+  }
+
+  /// Check if DeepSeek is available (reuses Phi-4 method name for backwards compat)
+  Future<bool> hasPhi4Model() async {
+    try {
+      final models = await getInstalledModels();
+      return models.any((m) => m.toLowerCase().contains('deepseek'));
+    } catch (e) {
+      return false;
+    }
+  }
+
+  /// Delete DeepSeek model to free storage
+  Future<Either<Failure, Unit>> deletePhi4Model() async {
+    try {
+      final models = await getInstalledModels();
+      final deepseekModel = models.firstWhere(
+        (m) => m.toLowerCase().contains('deepseek'),
+        orElse: () => '',
+      );
+      if (deepseekModel.isNotEmpty) {
+        await FlutterGemma.uninstallModel(deepseekModel);
+      }
+      downloadStore.setPhi4Status(ModelDownloadStatus.notStarted);
+      downloadStore.setPhi4Progress(0.0);
+      return const Right(unit);
+    } catch (e) {
+      return Left(StorageFailure('Failed to delete DeepSeek: $e'));
     }
   }
 }

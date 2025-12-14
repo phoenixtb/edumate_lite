@@ -1,16 +1,17 @@
 import 'package:dartz/dartz.dart';
 import '../interfaces/embedding_provider.dart';
-import '../interfaces/inference_provider.dart';
 import '../../core/errors/failures.dart';
+import '../../core/utils/logger.dart';
+import 'inference_router.dart';
 
 /// Service to initialize AI providers after models are loaded
 class AiInitializationService {
   final EmbeddingProvider embeddingProvider;
-  final InferenceProvider inferenceProvider;
+  final InferenceRouter inferenceRouter;
 
   AiInitializationService({
     required this.embeddingProvider,
-    required this.inferenceProvider,
+    required this.inferenceRouter,
   });
 
   /// Initialize both AI providers
@@ -18,9 +19,11 @@ class AiInitializationService {
     try {
       // Initialize embedding provider
       await embeddingProvider.initialize();
+      AppLogger.info('✅ Embedding provider initialized');
 
-      // Initialize inference provider
-      await inferenceProvider.initialize();
+      // Initialize inference router (loads appropriate model based on preference)
+      await inferenceRouter.initialize();
+      AppLogger.info('✅ Inference router initialized');
 
       return const Right(unit);
     } catch (e) {
@@ -28,8 +31,7 @@ class AiInitializationService {
     }
   }
 
-  /// Check if both providers are ready
-  bool get areProvidersReady =>
-      embeddingProvider.isReady && inferenceProvider.isReady;
+  /// Check if providers are ready
+  bool get areProvidersReady => embeddingProvider.isReady;
 }
 

@@ -45,6 +45,22 @@ abstract class ModelDownloadStoreBase with Store {
   @observable
   int? inferenceTotalBytes;
 
+  // Phi-4 (optional download)
+  @observable
+  ModelDownloadStatus phi4Status = ModelDownloadStatus.notStarted;
+
+  @observable
+  double phi4Progress = 0.0;
+
+  @observable
+  String? phi4Error;
+
+  @observable
+  int? phi4BytesDownloaded;
+
+  @observable
+  int? phi4TotalBytes;
+
   @action
   void setEmbeddingStatus(ModelDownloadStatus status) {
     embeddingStatus = status;
@@ -87,6 +103,27 @@ abstract class ModelDownloadStoreBase with Store {
     inferenceTotalBytes = total;
   }
 
+  @action
+  void setPhi4Status(ModelDownloadStatus status) {
+    phi4Status = status;
+  }
+
+  @action
+  void setPhi4Progress(double progress) {
+    phi4Progress = progress;
+  }
+
+  @action
+  void setPhi4Error(String? error) {
+    phi4Error = error;
+  }
+
+  @action
+  void updatePhi4Bytes(int downloaded, int total) {
+    phi4BytesDownloaded = downloaded;
+    phi4TotalBytes = total;
+  }
+
   @computed
   bool get isEmbeddingComplete =>
       embeddingStatus == ModelDownloadStatus.completed;
@@ -116,6 +153,22 @@ abstract class ModelDownloadStoreBase with Store {
       return '${mb.toStringAsFixed(1)}MB / ${totalMb.toStringAsFixed(1)}MB';
     }
     return '${(inferenceProgress * 100).toInt()}%';
+  }
+
+  @computed
+  bool get isPhi4Complete => phi4Status == ModelDownloadStatus.completed;
+
+  @computed
+  bool get isPhi4Downloading => phi4Status == ModelDownloadStatus.downloading;
+
+  @computed
+  String get phi4ProgressText {
+    if (phi4BytesDownloaded != null && phi4TotalBytes != null) {
+      final mb = phi4BytesDownloaded! / (1024 * 1024);
+      final totalMb = phi4TotalBytes! / (1024 * 1024);
+      return '${mb.toStringAsFixed(1)}MB / ${totalMb.toStringAsFixed(1)}MB';
+    }
+    return '${(phi4Progress * 100).toInt()}%';
   }
 }
 

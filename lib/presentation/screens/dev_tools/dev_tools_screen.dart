@@ -8,6 +8,7 @@ import '../../../stores/material_store.dart';
 import '../../../stores/chat_store.dart';
 import '../../../infrastructure/database/objectbox_vector_store.dart';
 import '../../../domain/entities/chunk.dart';
+import 'model_test_screen.dart';
 
 class DevToolsScreen extends StatefulWidget {
   const DevToolsScreen({super.key});
@@ -186,6 +187,18 @@ class _DevToolsScreenState extends State<DevToolsScreen>
           ],
         ),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.science),
+            tooltip: 'Model Test Lab',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const ModelTestScreen(),
+                ),
+              );
+            },
+          ),
           IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: () {
