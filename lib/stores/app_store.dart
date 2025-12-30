@@ -27,7 +27,7 @@ abstract class AppStoreBase with Store {
   bool isPhi4ModelReady = false;
 
   @observable
-  bool preferPhi4ForText = false; // Default to Gemma - DeepSeek has device compatibility issues
+  bool preferPhi4ForText = true; // Default to DeepSeek when available
 
   @observable
   bool devModeEnabled = false;
