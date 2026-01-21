@@ -50,12 +50,12 @@ class InferenceRouter {
     await ModelManager.instance.ensureModelForText();
     
     final activeModel = ModelManager.instance.activeModel;
-    final isDeepSeek = activeModel == ActiveModelType.deepseek || activeModel == ActiveModelType.phi4;
-    final modelName = isDeepSeek ? 'DeepSeek R1' : 'Gemma 3n E2B';
-    AppLogger.info('🤖 [INFERENCE] Using model: $modelName');
+    final isQwen = activeModel == ActiveModelType.qwen || activeModel == ActiveModelType.deepseek || activeModel == ActiveModelType.phi4;
+    final modelName = isQwen ? 'Qwen 2.5' : 'Gemma 3n E2B';
+    AppLogger.info('🤖 [INFERENCE] Using model: $modelName (activeModel=$activeModel, isQwen=$isQwen)');
     
     // #region agent log
-    _debugLog('A,D', 'after_ensureModel', {'activeModel': activeModel.toString(), 'isDeepSeek': isDeepSeek, 'modelName': modelName, 'currentModelNull': ModelManager.instance.currentModel == null, 'isLoading': ModelManager.instance.isLoading});
+    _debugLog('A,D', 'after_ensureModel', {'activeModel': activeModel.toString(), 'isQwen': isQwen, 'modelName': modelName, 'currentModelNull': ModelManager.instance.currentModel == null, 'isLoading': ModelManager.instance.isLoading});
     // #endregion
 
     // Acquire session lock
@@ -84,11 +84,11 @@ class InferenceRouter {
         return;
       }
 
-      // DeepSeek: temp 0.7, topK 40, topP 0.95
-      // Gemma: use app constants
-      final temperature = isDeepSeek ? 0.7 : AppConstants.inferenceTemperature;
-      final topK = isDeepSeek ? 40 : AppConstants.inferenceSamplingTopK;
-      final topP = isDeepSeek ? 0.95 : 0.9;
+      // Qwen: lower temp for focused, factual responses
+      // Higher values cause "blabbering" - use conservative settings
+      final temperature = isQwen ? 0.5 : AppConstants.inferenceTemperature;
+      final topK = isQwen ? 20 : AppConstants.inferenceSamplingTopK;
+      final topP = isQwen ? 0.8 : 0.9;
       
       // #region agent log
       _debugLog('E', 'before_createChat', {'temp': temperature, 'topK': topK, 'topP': topP, 'tokenBuffer': 256});
@@ -113,12 +113,12 @@ class InferenceRouter {
         conversationHistory: conversationHistory,
       );
       
-      // DeepSeek has smaller context (1280 tokens). Truncate if needed.
+      // Qwen has smaller context (1280 tokens). Truncate if needed.
       // Rough estimate: 1 token ≈ 4 chars, so 1280 tokens ≈ 5000 chars
       // Leave room for response: max input ≈ 4000 chars
       const maxPromptChars = 4000;
-      if (isDeepSeek && fullPrompt.length > maxPromptChars) {
-        AppLogger.warning('⚠️ [INFERENCE] Truncating prompt for DeepSeek: ${fullPrompt.length} -> $maxPromptChars');
+      if (isQwen && fullPrompt.length > maxPromptChars) {
+        AppLogger.warning('⚠️ [INFERENCE] Truncating prompt for Qwen: ${fullPrompt.length} -> $maxPromptChars');
         // Truncate the context portion, keep query and system prompt
         final contextStart = fullPrompt.indexOf('CONTEXT FROM STUDY MATERIALS:');
         final contextEnd = fullPrompt.indexOf("STUDENT'S QUESTION:");
@@ -137,7 +137,7 @@ class InferenceRouter {
       }
       
       // #region agent log
-      _debugLog('C', 'before_addQuery', {'promptLength': fullPrompt.length, 'isDeepSeek': isDeepSeek, 'truncated': fullPrompt.length <= maxPromptChars});
+      _debugLog('C', 'before_addQuery', {'promptLength': fullPrompt.length, 'isQwen': isQwen, 'truncated': fullPrompt.length <= maxPromptChars});
       // #endregion
 
       // Add query with isUser flag
@@ -213,7 +213,7 @@ class InferenceRouter {
       // #region agent log
       // Detect TFLite failure (empty response indicates GATHER_ND or similar op failure)
       if (buffer.isEmpty) {
-        _debugLog('F', 'empty_response_detected', {'isDeepSeek': isDeepSeek});
+        _debugLog('F', 'empty_response_detected', {'isQwen': isQwen});
         AppLogger.warning('⚠️ [INFERENCE] Empty response detected - possible TFLite op failure');
         yield 'Model inference failed. The AI model may not be compatible with this device.';
       }
@@ -432,9 +432,10 @@ class InferenceRouter {
   /// Get currently active model name
   String get activeModelName {
     switch (ModelManager.instance.activeModel) {
+      case ActiveModelType.qwen:
       case ActiveModelType.phi4:
       case ActiveModelType.deepseek:
-        return 'DeepSeek R1';
+        return 'Qwen 2.5';
       case ActiveModelType.gemma:
         return 'Gemma 3n E2B';
       case ActiveModelType.none:
@@ -445,15 +446,16 @@ class InferenceRouter {
   /// Check if any model is ready for inference
   bool get isReady => ModelManager.instance.currentModel != null;
 
-  /// Check if Phi-4 is available
-  Future<bool> isPhi4Available() async {
-    return await ModelManager.instance.isPhi4Installed();
+  /// Check if Qwen is available
+  Future<bool> isQwenAvailable() async {
+    return await ModelManager.instance.isQwenInstalled();
   }
 
   /// Refresh model state after download/delete
   Future<void> refreshModelState() async {
-    final phi4Available = await isPhi4Available();
+    final qwenAvailable = await isQwenAvailable();
     final appStore = getIt<AppStore>();
-    appStore.setPhi4ModelReady(phi4Available);
+    appStore.setPhi4ModelReady(qwenAvailable); // Reuse flag for Qwen
+    AppLogger.debug('🔄 [INFERENCE] Model state refreshed: qwenAvailable=$qwenAvailable');
   }
 }

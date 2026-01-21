@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_mobx/flutter_mobx.dart';
 import '../../../config/service_locator.dart';
 import '../../../stores/material_store.dart';
+import '../../../stores/concept_store.dart';
 import '../../widgets/material/material_card.dart';
 import '../../widgets/material/processing_progress_card.dart';
 import 'add_material_sheet.dart';
+import 'material_detail_screen.dart';
 
 class MaterialsTab extends StatefulWidget {
   const MaterialsTab({super.key});
@@ -15,6 +17,7 @@ class MaterialsTab extends StatefulWidget {
 
 class _MaterialsTabState extends State<MaterialsTab> {
   final materialStore = getIt<MaterialStore>();
+  final conceptStore = getIt<ConceptStore>();
 
   @override
   void initState() {
@@ -115,14 +118,33 @@ class _MaterialsTabState extends State<MaterialsTab> {
                       delegate: SliverChildBuilderDelegate(
                         (context, index) {
                           final material = materialStore.materials[index];
+                          final concepts = conceptStore.getConceptsForMaterial(material.id);
                           return Padding(
                             padding: const EdgeInsets.only(bottom: 12),
                             child: MaterialCard(
                               material: material,
+                              hasConcepts: concepts.isNotEmpty,
+                              onTap: material.status == 'completed'
+                                  ? () => Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (_) =>
+                                              MaterialDetailScreen(material: material),
+                                        ),
+                                      )
+                                  : null,
                               onDelete: () => _confirmDelete(material.id),
                               onRetry: material.status == 'failed'
                                   ? () => materialStore.reprocessMaterial(material.id)
                                   : null,
+                              onEdit: (title, subject, grade) {
+                                materialStore.updateMaterial(
+                                  materialId: material.id,
+                                  title: title,
+                                  subject: subject,
+                                  gradeLevel: grade,
+                                );
+                              },
                             ),
                           );
                         },

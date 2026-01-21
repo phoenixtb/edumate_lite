@@ -7,6 +7,7 @@ import '../domain/services/conversation_manager.dart';
 import '../domain/services/vision_service.dart';
 import '../domain/services/inference_router.dart';
 import '../core/prompts/prompt_templates.dart';
+import '../core/utils/logger.dart';
 import '../config/service_locator.dart';
 
 part 'chat_store.g.dart';
@@ -213,7 +214,7 @@ abstract class ChatStoreBase with Store {
         // Generate title AFTER response is complete with a delay
         // to ensure the previous session is fully closed
         if (isFirstMessage) {
-          Future.delayed(const Duration(seconds: 2), () {
+          Future.delayed(const Duration(seconds: 3), () {
             _generateTitle(content);
           });
         }
@@ -448,48 +449,86 @@ abstract class ChatStoreBase with Store {
   }
 
   /// Generate a short title from the first message using LLM
+  /// Falls back to extracting first few words if LLM fails
   Future<void> _generateTitle(String firstMessage) async {
-    if (currentConversation == null || !_inferenceRouter.isReady) return;
+    AppLogger.debug('🏷️ [TITLE] Starting title generation...');
+    
+    if (currentConversation == null) {
+      AppLogger.debug('🏷️ [TITLE] Skipped: no conversation');
+      return;
+    }
     
     // Skip if title is already set (not "New Chat")
-    if (currentConversation!.title != 'New Chat') return;
+    if (currentConversation!.title != 'New Chat') {
+      AppLogger.debug('🏷️ [TITLE] Skipped: title already set');
+      return;
+    }
+
+    String title = '';
     
-    try {
-      final titleTemplate = PromptFactory.get(PromptType.title);
-      final titleBuffer = StringBuffer();
-      
-      await for (final chunk in _inferenceRouter.generate(
-        systemPrompt: titleTemplate.systemPrompt,
-        context: '',
-        query: titleTemplate.buildPrompt({'message': firstMessage}),
-      )) {
-        titleBuffer.write(chunk);
-      }
-      
-      var title = titleBuffer.toString().trim();
-      
-      // Clean up the title
-      title = title.replaceAll('"', '').replaceAll("'", '');
-      if (title.length > 40) {
-        title = '${title.substring(0, 37)}...';
-      }
-      
-      // Update conversation title
-      if (title.isNotEmpty && currentConversation != null) {
-        final result = await _conversationManager.updateTitle(
-          currentConversation!.id,
-          title,
-        );
+    // Try LLM-generated title first
+    if (_inferenceRouter.isReady) {
+      try {
+        final titleTemplate = PromptFactory.get(PromptType.title);
+        final titleBuffer = StringBuffer();
         
-        result.fold(
-          (_) {},
-          (updated) {
-            currentConversation = updated;
-          },
-        );
+        AppLogger.debug('🏷️ [TITLE] Calling inference for title...');
+        
+        // Add timeout to prevent hanging
+        await for (final chunk in _inferenceRouter.generate(
+          systemPrompt: titleTemplate.systemPrompt,
+          context: '',
+          query: titleTemplate.buildPrompt({'message': firstMessage}),
+        ).timeout(const Duration(seconds: 15))) {
+          titleBuffer.write(chunk);
+          // Stop if we have enough
+          if (titleBuffer.length > 50) break;
+        }
+        
+        title = titleBuffer.toString().trim();
+        AppLogger.debug('🏷️ [TITLE] Raw title: "$title"');
+        
+        // Clean up the title
+        title = title.replaceAll('"', '').replaceAll("'", '');
+        title = title.replaceAll(RegExp(r'^Title[:\s]*', caseSensitive: false), '');
+        
+      } catch (e) {
+        AppLogger.warning('🏷️ [TITLE] LLM failed: $e, using fallback');
+        title = '';
       }
-    } catch (e) {
-      // Silently fail - title generation is not critical
+    }
+    
+    // Fallback: extract first few words from the question
+    if (title.isEmpty || title.length < 3) {
+      AppLogger.debug('🏷️ [TITLE] Using fallback title extraction');
+      final words = firstMessage.split(RegExp(r'\s+')).take(5).toList();
+      title = words.join(' ');
+      if (title.length > 35) {
+        title = '${title.substring(0, 32)}...';
+      }
+    }
+    
+    // Limit length
+    if (title.length > 40) {
+      title = '${title.substring(0, 37)}...';
+    }
+    
+    // Update conversation title
+    if (title.isNotEmpty && currentConversation != null) {
+      final result = await _conversationManager.updateTitle(
+        currentConversation!.id,
+        title,
+      );
+      
+      result.fold(
+        (failure) {
+          AppLogger.warning('🏷️ [TITLE] Failed to update: ${failure.message}');
+        },
+        (updated) {
+          currentConversation = updated;
+          AppLogger.info('🏷️ [TITLE] Updated to: "$title"');
+        },
+      );
     }
   }
 

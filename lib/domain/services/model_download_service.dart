@@ -118,7 +118,7 @@ class ModelDownloadService {
     }
   }
 
-  /// Download DeepSeek from HuggingFace (for better text reasoning with thinking mode)
+  /// Download Qwen 2.5 from HuggingFace (for better text with function calling)
   /// Note: This reuses the Phi-4 UI state for backwards compatibility
   Future<Either<Failure, Unit>> downloadPhi4Model() async {
     try {
@@ -126,9 +126,9 @@ class ModelDownloadService {
       downloadStore.setPhi4Progress(0.0);
 
       await FlutterGemma.installModel(
-        modelType: ModelType.deepSeek, // DeepSeek uses proper model type
+        modelType: ModelType.qwen,
       )
-          .fromNetwork(AppConstants.deepseekModelUrl)
+          .fromNetwork(AppConstants.qwenModelUrl)
           .withProgress((progress) {
             Future.microtask(() {
               downloadStore.setPhi4Progress(progress / 100);
@@ -141,36 +141,36 @@ class ModelDownloadService {
     } catch (e) {
       downloadStore.setPhi4Status(ModelDownloadStatus.failed);
       downloadStore.setPhi4Error(e.toString());
-      return Left(NetworkFailure('Failed to download Phi-4: $e'));
+      return Left(NetworkFailure('Failed to download Qwen: $e'));
     }
   }
 
-  /// Check if DeepSeek is available (reuses Phi-4 method name for backwards compat)
+  /// Check if Qwen is available (reuses method name for backwards compat)
   Future<bool> hasPhi4Model() async {
     try {
       final models = await getInstalledModels();
-      return models.any((m) => m.toLowerCase().contains('deepseek'));
+      return models.any((m) => m.toLowerCase().contains('qwen'));
     } catch (e) {
       return false;
     }
   }
 
-  /// Delete DeepSeek model to free storage
+  /// Delete Qwen model to free storage
   Future<Either<Failure, Unit>> deletePhi4Model() async {
     try {
       final models = await getInstalledModels();
-      final deepseekModel = models.firstWhere(
-        (m) => m.toLowerCase().contains('deepseek'),
+      final qwenModel = models.firstWhere(
+        (m) => m.toLowerCase().contains('qwen'),
         orElse: () => '',
       );
-      if (deepseekModel.isNotEmpty) {
-        await FlutterGemma.uninstallModel(deepseekModel);
+      if (qwenModel.isNotEmpty) {
+        await FlutterGemma.uninstallModel(qwenModel);
       }
       downloadStore.setPhi4Status(ModelDownloadStatus.notStarted);
       downloadStore.setPhi4Progress(0.0);
       return const Right(unit);
     } catch (e) {
-      return Left(StorageFailure('Failed to delete DeepSeek: $e'));
+      return Left(StorageFailure('Failed to delete Qwen: $e'));
     }
   }
 }

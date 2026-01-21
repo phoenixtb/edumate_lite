@@ -15,9 +15,11 @@ import 'package:objectbox/objectbox.dart' as obx;
 import 'package:objectbox_flutter_libs/objectbox_flutter_libs.dart';
 
 import 'domain/entities/chunk.dart';
+import 'domain/entities/concept.dart';
 import 'domain/entities/conversation.dart';
 import 'domain/entities/material.dart';
 import 'domain/entities/message.dart';
+import 'domain/entities/page.dart';
 
 export 'package:objectbox/objectbox.dart'; // so that callers only have to import this file
 
@@ -25,7 +27,7 @@ final _entities = <obx_int.ModelEntity>[
   obx_int.ModelEntity(
     id: const obx_int.IdUid(1, 1014927944962503315),
     name: 'Chunk',
-    lastPropertyId: const obx_int.IdUid(10, 5588954731300215075),
+    lastPropertyId: const obx_int.IdUid(23, 4893171573656317962),
     flags: 0,
     properties: <obx_int.ModelProperty>[
       obx_int.ModelProperty(
@@ -97,6 +99,84 @@ final _entities = <obx_int.ModelEntity>[
         type: 9,
         flags: 0,
       ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(11, 812604989952614016),
+        name: 'tokenCount',
+        type: 6,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(12, 4282123661863200800),
+        name: 'confidenceScore',
+        type: 8,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(13, 5408471571482053220),
+        name: 'extractionMethod',
+        type: 9,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(14, 6281933701988962969),
+        name: 'startOffset',
+        type: 6,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(15, 1582987678898930500),
+        name: 'endOffset',
+        type: 6,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(16, 5068141380671441634),
+        name: 'importance',
+        type: 8,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(17, 1958423378107903496),
+        name: 'isKeyPoint',
+        type: 1,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(18, 6358852614509302580),
+        name: 'keywordsJson',
+        type: 9,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(19, 8705771889162549423),
+        name: 'entitiesJson',
+        type: 9,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(20, 1466954395031078410),
+        name: 'conceptTagsJson',
+        type: 9,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(21, 1663799978094793828),
+        name: 'parentChunkId',
+        type: 6,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(22, 5255822612996032599),
+        name: 'relatedChunkIdsJson',
+        type: 9,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(23, 4893171573656317962),
+        name: 'sentenceCount',
+        type: 6,
+        flags: 0,
+      ),
     ],
     relations: <obx_int.ModelRelation>[],
     backlinks: <obx_int.ModelBacklink>[],
@@ -153,7 +233,7 @@ final _entities = <obx_int.ModelEntity>[
   obx_int.ModelEntity(
     id: const obx_int.IdUid(3, 6019905763468012353),
     name: 'Material',
-    lastPropertyId: const obx_int.IdUid(12, 6907678506623526696),
+    lastPropertyId: const obx_int.IdUid(23, 223788053633959389),
     flags: 0,
     properties: <obx_int.ModelProperty>[
       obx_int.ModelProperty(
@@ -228,6 +308,72 @@ final _entities = <obx_int.ModelEntity>[
         type: 6,
         flags: 0,
       ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(13, 2351873167968337655),
+        name: 'lastAccessedAt',
+        type: 10,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(14, 3315494802421796556),
+        name: 'processingMode',
+        type: 9,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(15, 4856078456012633781),
+        name: 'pageCount',
+        type: 6,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(16, 6866272830338313903),
+        name: 'extractionQuality',
+        type: 8,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(17, 7595048962250581193),
+        name: 'fileHash',
+        type: 9,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(18, 3465888064473085651),
+        name: 'fileSizeBytes',
+        type: 6,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(19, 7561222312045358057),
+        name: 'totalTokens',
+        type: 6,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(20, 538440450183328869),
+        name: 'totalWords',
+        type: 6,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(21, 1368749310469153853),
+        name: 'language',
+        type: 9,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(22, 4547764804639564463),
+        name: 'detectedTopicsJson',
+        type: 9,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(23, 223788053633959389),
+        name: 'keywordsJson',
+        type: 9,
+        flags: 0,
+      ),
     ],
     relations: <obx_int.ModelRelation>[],
     backlinks: <obx_int.ModelBacklink>[],
@@ -293,6 +439,216 @@ final _entities = <obx_int.ModelEntity>[
     relations: <obx_int.ModelRelation>[],
     backlinks: <obx_int.ModelBacklink>[],
   ),
+  obx_int.ModelEntity(
+    id: const obx_int.IdUid(5, 6665060004128375480),
+    name: 'Page',
+    lastPropertyId: const obx_int.IdUid(15, 1421635155915839774),
+    flags: 0,
+    properties: <obx_int.ModelProperty>[
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(1, 2507366366530938020),
+        name: 'id',
+        type: 6,
+        flags: 1,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(2, 6039125604212602783),
+        name: 'materialId',
+        type: 11,
+        flags: 520,
+        indexId: const obx_int.IdUid(5, 5658023394340098086),
+        relationField: 'material',
+        relationTarget: 'Material',
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(3, 3827916066282545598),
+        name: 'pageNumber',
+        type: 6,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(4, 3265019240554787798),
+        name: 'imagePath',
+        type: 9,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(5, 2808624265502474176),
+        name: 'width',
+        type: 8,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(6, 3243207848062028189),
+        name: 'height',
+        type: 8,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(7, 6855173199233260390),
+        name: 'extractionMethod',
+        type: 9,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(8, 1683482430439219696),
+        name: 'textDensity',
+        type: 8,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(9, 3345571728582089540),
+        name: 'hasEquations',
+        type: 1,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(10, 6583534764584037885),
+        name: 'hasDiagrams',
+        type: 1,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(11, 9018161888642739646),
+        name: 'hasTables',
+        type: 1,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(12, 6899052171690369706),
+        name: 'hasCode',
+        type: 1,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(13, 1940739527552739639),
+        name: 'summary',
+        type: 9,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(14, 5426894388150793363),
+        name: 'chunkCount',
+        type: 6,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(15, 1421635155915839774),
+        name: 'createdAt',
+        type: 10,
+        flags: 0,
+      ),
+    ],
+    relations: <obx_int.ModelRelation>[],
+    backlinks: <obx_int.ModelBacklink>[],
+  ),
+  obx_int.ModelEntity(
+    id: const obx_int.IdUid(6, 7656868293947644265),
+    name: 'Concept',
+    lastPropertyId: const obx_int.IdUid(16, 3870560316610184319),
+    flags: 0,
+    properties: <obx_int.ModelProperty>[
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(1, 214810068163228097),
+        name: 'id',
+        type: 6,
+        flags: 1,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(2, 5820839719291698107),
+        name: 'name',
+        type: 9,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(3, 5148002570098580),
+        name: 'normalizedName',
+        type: 9,
+        flags: 2048,
+        indexId: const obx_int.IdUid(6, 7201973077719255181),
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(4, 3851196553604571196),
+        name: 'type',
+        type: 9,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(5, 3710863377883903619),
+        name: 'definition',
+        type: 9,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(6, 3531054990147751618),
+        name: 'materialIdsJson',
+        type: 9,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(7, 7370565038916510480),
+        name: 'chunkIdsJson',
+        type: 9,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(8, 1771261161517645589),
+        name: 'frequency',
+        type: 6,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(9, 2588231214640607570),
+        name: 'relatedConceptIdsJson',
+        type: 9,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(10, 4491681767960741601),
+        name: 'subject',
+        type: 9,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(11, 4336862964494670700),
+        name: 'importance',
+        type: 8,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(12, 851237118580082940),
+        name: 'createdAt',
+        type: 10,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(13, 755084501819635319),
+        name: 'updatedAt',
+        type: 10,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(14, 3773156965074562528),
+        name: 'materialIds',
+        type: 27,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(15, 2756511832131635499),
+        name: 'chunkIds',
+        type: 27,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(16, 3870560316610184319),
+        name: 'relatedConceptIds',
+        type: 27,
+        flags: 0,
+      ),
+    ],
+    relations: <obx_int.ModelRelation>[],
+    backlinks: <obx_int.ModelBacklink>[],
+  ),
 ];
 
 /// Shortcut for [obx.Store.new] that passes [getObjectBoxModel] and for Flutter
@@ -333,8 +689,8 @@ Future<obx.Store> openStore({
 obx_int.ModelDefinition getObjectBoxModel() {
   final model = obx_int.ModelInfo(
     entities: _entities,
-    lastEntityId: const obx_int.IdUid(4, 8744402169022907611),
-    lastIndexId: const obx_int.IdUid(4, 9063384396148918469),
+    lastEntityId: const obx_int.IdUid(6, 7656868293947644265),
+    lastIndexId: const obx_int.IdUid(6, 7201973077719255181),
     lastRelationId: const obx_int.IdUid(0, 0),
     lastSequenceId: const obx_int.IdUid(0, 0),
     retiredEntityUids: const [],
@@ -364,7 +720,20 @@ obx_int.ModelDefinition getObjectBoxModel() {
         final metadataJsonOffset = object.metadataJson == null
             ? null
             : fbb.writeString(object.metadataJson!);
-        fbb.startTable(11);
+        final extractionMethodOffset = fbb.writeString(object.extractionMethod);
+        final keywordsJsonOffset = object.keywordsJson == null
+            ? null
+            : fbb.writeString(object.keywordsJson!);
+        final entitiesJsonOffset = object.entitiesJson == null
+            ? null
+            : fbb.writeString(object.entitiesJson!);
+        final conceptTagsJsonOffset = object.conceptTagsJson == null
+            ? null
+            : fbb.writeString(object.conceptTagsJson!);
+        final relatedChunkIdsJsonOffset = object.relatedChunkIdsJson == null
+            ? null
+            : fbb.writeString(object.relatedChunkIdsJson!);
+        fbb.startTable(24);
         fbb.addInt64(0, object.id);
         fbb.addInt64(1, object.material.targetId);
         fbb.addOffset(2, contentOffset);
@@ -375,6 +744,19 @@ obx_int.ModelDefinition getObjectBoxModel() {
         fbb.addOffset(7, chunkTypeOffset);
         fbb.addInt64(8, object.wordCount);
         fbb.addOffset(9, metadataJsonOffset);
+        fbb.addInt64(10, object.tokenCount);
+        fbb.addFloat64(11, object.confidenceScore);
+        fbb.addOffset(12, extractionMethodOffset);
+        fbb.addInt64(13, object.startOffset);
+        fbb.addInt64(14, object.endOffset);
+        fbb.addFloat64(15, object.importance);
+        fbb.addBool(16, object.isKeyPoint);
+        fbb.addOffset(17, keywordsJsonOffset);
+        fbb.addOffset(18, entitiesJsonOffset);
+        fbb.addOffset(19, conceptTagsJsonOffset);
+        fbb.addInt64(20, object.parentChunkId);
+        fbb.addOffset(21, relatedChunkIdsJsonOffset);
+        fbb.addInt64(22, object.sentenceCount);
         fbb.finish(fbb.endTable());
         return object.id;
       },
@@ -416,6 +798,66 @@ obx_int.ModelDefinition getObjectBoxModel() {
         final metadataJsonParam = const fb.StringReader(
           asciiOptimization: true,
         ).vTableGetNullable(buffer, rootOffset, 22);
+        final tokenCountParam = const fb.Int64Reader().vTableGet(
+          buffer,
+          rootOffset,
+          24,
+          0,
+        );
+        final confidenceScoreParam = const fb.Float64Reader().vTableGet(
+          buffer,
+          rootOffset,
+          26,
+          0,
+        );
+        final extractionMethodParam = const fb.StringReader(
+          asciiOptimization: true,
+        ).vTableGet(buffer, rootOffset, 28, '');
+        final startOffsetParam = const fb.Int64Reader().vTableGetNullable(
+          buffer,
+          rootOffset,
+          30,
+        );
+        final endOffsetParam = const fb.Int64Reader().vTableGetNullable(
+          buffer,
+          rootOffset,
+          32,
+        );
+        final importanceParam = const fb.Float64Reader().vTableGet(
+          buffer,
+          rootOffset,
+          34,
+          0,
+        );
+        final isKeyPointParam = const fb.BoolReader().vTableGet(
+          buffer,
+          rootOffset,
+          36,
+          false,
+        );
+        final keywordsJsonParam = const fb.StringReader(
+          asciiOptimization: true,
+        ).vTableGetNullable(buffer, rootOffset, 38);
+        final entitiesJsonParam = const fb.StringReader(
+          asciiOptimization: true,
+        ).vTableGetNullable(buffer, rootOffset, 40);
+        final conceptTagsJsonParam = const fb.StringReader(
+          asciiOptimization: true,
+        ).vTableGetNullable(buffer, rootOffset, 42);
+        final parentChunkIdParam = const fb.Int64Reader().vTableGetNullable(
+          buffer,
+          rootOffset,
+          44,
+        );
+        final relatedChunkIdsJsonParam = const fb.StringReader(
+          asciiOptimization: true,
+        ).vTableGetNullable(buffer, rootOffset, 46);
+        final sentenceCountParam = const fb.Int64Reader().vTableGet(
+          buffer,
+          rootOffset,
+          48,
+          0,
+        );
         final object = Chunk(
           content: contentParam,
           embedding: embeddingParam,
@@ -425,6 +867,19 @@ obx_int.ModelDefinition getObjectBoxModel() {
           chunkType: chunkTypeParam,
           wordCount: wordCountParam,
           metadataJson: metadataJsonParam,
+          tokenCount: tokenCountParam,
+          confidenceScore: confidenceScoreParam,
+          extractionMethod: extractionMethodParam,
+          startOffset: startOffsetParam,
+          endOffset: endOffsetParam,
+          importance: importanceParam,
+          isKeyPoint: isKeyPointParam,
+          keywordsJson: keywordsJsonParam,
+          entitiesJson: entitiesJsonParam,
+          conceptTagsJson: conceptTagsJsonParam,
+          parentChunkId: parentChunkIdParam,
+          relatedChunkIdsJson: relatedChunkIdsJsonParam,
+          sentenceCount: sentenceCountParam,
         )..id = const fb.Int64Reader().vTableGet(buffer, rootOffset, 4, 0);
         object.material.targetId = const fb.Int64Reader().vTableGet(
           buffer,
@@ -514,7 +969,20 @@ obx_int.ModelDefinition getObjectBoxModel() {
         final errorMessageOffset = object.errorMessage == null
             ? null
             : fbb.writeString(object.errorMessage!);
-        fbb.startTable(13);
+        final processingModeOffset = fbb.writeString(object.processingMode);
+        final fileHashOffset = object.fileHash == null
+            ? null
+            : fbb.writeString(object.fileHash!);
+        final languageOffset = object.language == null
+            ? null
+            : fbb.writeString(object.language!);
+        final detectedTopicsJsonOffset = object.detectedTopicsJson == null
+            ? null
+            : fbb.writeString(object.detectedTopicsJson!);
+        final keywordsJsonOffset = object.keywordsJson == null
+            ? null
+            : fbb.writeString(object.keywordsJson!);
+        fbb.startTable(24);
         fbb.addInt64(0, object.id);
         fbb.addOffset(1, titleOffset);
         fbb.addOffset(2, descriptionOffset);
@@ -527,6 +995,17 @@ obx_int.ModelDefinition getObjectBoxModel() {
         fbb.addInt64(9, object.createdAt.millisecondsSinceEpoch);
         fbb.addInt64(10, object.processedAt?.millisecondsSinceEpoch);
         fbb.addInt64(11, object.chunkCount);
+        fbb.addInt64(12, object.lastAccessedAt?.millisecondsSinceEpoch);
+        fbb.addOffset(13, processingModeOffset);
+        fbb.addInt64(14, object.pageCount);
+        fbb.addFloat64(15, object.extractionQuality);
+        fbb.addOffset(16, fileHashOffset);
+        fbb.addInt64(17, object.fileSizeBytes);
+        fbb.addInt64(18, object.totalTokens);
+        fbb.addInt64(19, object.totalWords);
+        fbb.addOffset(20, languageOffset);
+        fbb.addOffset(21, detectedTopicsJsonOffset);
+        fbb.addOffset(22, keywordsJsonOffset);
         fbb.finish(fbb.endTable());
         return object.id;
       },
@@ -537,6 +1016,11 @@ obx_int.ModelDefinition getObjectBoxModel() {
           buffer,
           rootOffset,
           24,
+        );
+        final lastAccessedAtValue = const fb.Int64Reader().vTableGetNullable(
+          buffer,
+          rootOffset,
+          28,
         );
         final titleParam = const fb.StringReader(
           asciiOptimization: true,
@@ -570,12 +1054,59 @@ obx_int.ModelDefinition getObjectBoxModel() {
         final processedAtParam = processedAtValue == null
             ? null
             : DateTime.fromMillisecondsSinceEpoch(processedAtValue);
+        final lastAccessedAtParam = lastAccessedAtValue == null
+            ? null
+            : DateTime.fromMillisecondsSinceEpoch(lastAccessedAtValue);
         final chunkCountParam = const fb.Int64Reader().vTableGet(
           buffer,
           rootOffset,
           26,
           0,
         );
+        final processingModeParam = const fb.StringReader(
+          asciiOptimization: true,
+        ).vTableGet(buffer, rootOffset, 30, '');
+        final pageCountParam = const fb.Int64Reader().vTableGet(
+          buffer,
+          rootOffset,
+          32,
+          0,
+        );
+        final extractionQualityParam = const fb.Float64Reader().vTableGet(
+          buffer,
+          rootOffset,
+          34,
+          0,
+        );
+        final fileHashParam = const fb.StringReader(
+          asciiOptimization: true,
+        ).vTableGetNullable(buffer, rootOffset, 36);
+        final fileSizeBytesParam = const fb.Int64Reader().vTableGetNullable(
+          buffer,
+          rootOffset,
+          38,
+        );
+        final totalTokensParam = const fb.Int64Reader().vTableGet(
+          buffer,
+          rootOffset,
+          40,
+          0,
+        );
+        final totalWordsParam = const fb.Int64Reader().vTableGet(
+          buffer,
+          rootOffset,
+          42,
+          0,
+        );
+        final languageParam = const fb.StringReader(
+          asciiOptimization: true,
+        ).vTableGetNullable(buffer, rootOffset, 44);
+        final detectedTopicsJsonParam = const fb.StringReader(
+          asciiOptimization: true,
+        ).vTableGetNullable(buffer, rootOffset, 46);
+        final keywordsJsonParam = const fb.StringReader(
+          asciiOptimization: true,
+        ).vTableGetNullable(buffer, rootOffset, 48);
         final object = Material(
           title: titleParam,
           description: descriptionParam,
@@ -587,7 +1118,18 @@ obx_int.ModelDefinition getObjectBoxModel() {
           errorMessage: errorMessageParam,
           createdAt: createdAtParam,
           processedAt: processedAtParam,
+          lastAccessedAt: lastAccessedAtParam,
           chunkCount: chunkCountParam,
+          processingMode: processingModeParam,
+          pageCount: pageCountParam,
+          extractionQuality: extractionQualityParam,
+          fileHash: fileHashParam,
+          fileSizeBytes: fileSizeBytesParam,
+          totalTokens: totalTokensParam,
+          totalWords: totalWordsParam,
+          language: languageParam,
+          detectedTopicsJson: detectedTopicsJsonParam,
+          keywordsJson: keywordsJsonParam,
         )..id = const fb.Int64Reader().vTableGet(buffer, rootOffset, 4, 0);
 
         return object;
@@ -663,6 +1205,263 @@ obx_int.ModelDefinition getObjectBoxModel() {
         return object;
       },
     ),
+    Page: obx_int.EntityDefinition<Page>(
+      model: _entities[4],
+      toOneRelations: (Page object) => [object.material],
+      toManyRelations: (Page object) => {},
+      getId: (Page object) => object.id,
+      setId: (Page object, int id) {
+        object.id = id;
+      },
+      objectToFB: (Page object, fb.Builder fbb) {
+        final imagePathOffset = object.imagePath == null
+            ? null
+            : fbb.writeString(object.imagePath!);
+        final extractionMethodOffset = fbb.writeString(object.extractionMethod);
+        final summaryOffset = object.summary == null
+            ? null
+            : fbb.writeString(object.summary!);
+        fbb.startTable(16);
+        fbb.addInt64(0, object.id);
+        fbb.addInt64(1, object.material.targetId);
+        fbb.addInt64(2, object.pageNumber);
+        fbb.addOffset(3, imagePathOffset);
+        fbb.addFloat64(4, object.width);
+        fbb.addFloat64(5, object.height);
+        fbb.addOffset(6, extractionMethodOffset);
+        fbb.addFloat64(7, object.textDensity);
+        fbb.addBool(8, object.hasEquations);
+        fbb.addBool(9, object.hasDiagrams);
+        fbb.addBool(10, object.hasTables);
+        fbb.addBool(11, object.hasCode);
+        fbb.addOffset(12, summaryOffset);
+        fbb.addInt64(13, object.chunkCount);
+        fbb.addInt64(14, object.createdAt.millisecondsSinceEpoch);
+        fbb.finish(fbb.endTable());
+        return object.id;
+      },
+      objectFromFB: (obx.Store store, ByteData fbData) {
+        final buffer = fb.BufferContext(fbData);
+        final rootOffset = buffer.derefObject(0);
+        final pageNumberParam = const fb.Int64Reader().vTableGet(
+          buffer,
+          rootOffset,
+          8,
+          0,
+        );
+        final imagePathParam = const fb.StringReader(
+          asciiOptimization: true,
+        ).vTableGetNullable(buffer, rootOffset, 10);
+        final widthParam = const fb.Float64Reader().vTableGetNullable(
+          buffer,
+          rootOffset,
+          12,
+        );
+        final heightParam = const fb.Float64Reader().vTableGetNullable(
+          buffer,
+          rootOffset,
+          14,
+        );
+        final extractionMethodParam = const fb.StringReader(
+          asciiOptimization: true,
+        ).vTableGet(buffer, rootOffset, 16, '');
+        final textDensityParam = const fb.Float64Reader().vTableGet(
+          buffer,
+          rootOffset,
+          18,
+          0,
+        );
+        final hasEquationsParam = const fb.BoolReader().vTableGet(
+          buffer,
+          rootOffset,
+          20,
+          false,
+        );
+        final hasDiagramsParam = const fb.BoolReader().vTableGet(
+          buffer,
+          rootOffset,
+          22,
+          false,
+        );
+        final hasTablesParam = const fb.BoolReader().vTableGet(
+          buffer,
+          rootOffset,
+          24,
+          false,
+        );
+        final hasCodeParam = const fb.BoolReader().vTableGet(
+          buffer,
+          rootOffset,
+          26,
+          false,
+        );
+        final summaryParam = const fb.StringReader(
+          asciiOptimization: true,
+        ).vTableGetNullable(buffer, rootOffset, 28);
+        final chunkCountParam = const fb.Int64Reader().vTableGet(
+          buffer,
+          rootOffset,
+          30,
+          0,
+        );
+        final createdAtParam = DateTime.fromMillisecondsSinceEpoch(
+          const fb.Int64Reader().vTableGet(buffer, rootOffset, 32, 0),
+        );
+        final object = Page(
+          pageNumber: pageNumberParam,
+          imagePath: imagePathParam,
+          width: widthParam,
+          height: heightParam,
+          extractionMethod: extractionMethodParam,
+          textDensity: textDensityParam,
+          hasEquations: hasEquationsParam,
+          hasDiagrams: hasDiagramsParam,
+          hasTables: hasTablesParam,
+          hasCode: hasCodeParam,
+          summary: summaryParam,
+          chunkCount: chunkCountParam,
+          createdAt: createdAtParam,
+        )..id = const fb.Int64Reader().vTableGet(buffer, rootOffset, 4, 0);
+        object.material.targetId = const fb.Int64Reader().vTableGet(
+          buffer,
+          rootOffset,
+          6,
+          0,
+        );
+        object.material.attach(store);
+        return object;
+      },
+    ),
+    Concept: obx_int.EntityDefinition<Concept>(
+      model: _entities[5],
+      toOneRelations: (Concept object) => [],
+      toManyRelations: (Concept object) => {},
+      getId: (Concept object) => object.id,
+      setId: (Concept object, int id) {
+        object.id = id;
+      },
+      objectToFB: (Concept object, fb.Builder fbb) {
+        final nameOffset = fbb.writeString(object.name);
+        final normalizedNameOffset = fbb.writeString(object.normalizedName);
+        final typeOffset = fbb.writeString(object.type);
+        final definitionOffset = object.definition == null
+            ? null
+            : fbb.writeString(object.definition!);
+        final materialIdsJsonOffset = fbb.writeString(object.materialIdsJson);
+        final chunkIdsJsonOffset = fbb.writeString(object.chunkIdsJson);
+        final relatedConceptIdsJsonOffset = object.relatedConceptIdsJson == null
+            ? null
+            : fbb.writeString(object.relatedConceptIdsJson!);
+        final subjectOffset = object.subject == null
+            ? null
+            : fbb.writeString(object.subject!);
+        final materialIdsOffset = fbb.writeListInt64(object.materialIds);
+        final chunkIdsOffset = fbb.writeListInt64(object.chunkIds);
+        final relatedConceptIdsOffset = fbb.writeListInt64(
+          object.relatedConceptIds,
+        );
+        fbb.startTable(17);
+        fbb.addInt64(0, object.id);
+        fbb.addOffset(1, nameOffset);
+        fbb.addOffset(2, normalizedNameOffset);
+        fbb.addOffset(3, typeOffset);
+        fbb.addOffset(4, definitionOffset);
+        fbb.addOffset(5, materialIdsJsonOffset);
+        fbb.addOffset(6, chunkIdsJsonOffset);
+        fbb.addInt64(7, object.frequency);
+        fbb.addOffset(8, relatedConceptIdsJsonOffset);
+        fbb.addOffset(9, subjectOffset);
+        fbb.addFloat64(10, object.importance);
+        fbb.addInt64(11, object.createdAt.millisecondsSinceEpoch);
+        fbb.addInt64(12, object.updatedAt?.millisecondsSinceEpoch);
+        fbb.addOffset(13, materialIdsOffset);
+        fbb.addOffset(14, chunkIdsOffset);
+        fbb.addOffset(15, relatedConceptIdsOffset);
+        fbb.finish(fbb.endTable());
+        return object.id;
+      },
+      objectFromFB: (obx.Store store, ByteData fbData) {
+        final buffer = fb.BufferContext(fbData);
+        final rootOffset = buffer.derefObject(0);
+        final updatedAtValue = const fb.Int64Reader().vTableGetNullable(
+          buffer,
+          rootOffset,
+          28,
+        );
+        final nameParam = const fb.StringReader(
+          asciiOptimization: true,
+        ).vTableGet(buffer, rootOffset, 6, '');
+        final normalizedNameParam = const fb.StringReader(
+          asciiOptimization: true,
+        ).vTableGet(buffer, rootOffset, 8, '');
+        final typeParam = const fb.StringReader(
+          asciiOptimization: true,
+        ).vTableGet(buffer, rootOffset, 10, '');
+        final definitionParam = const fb.StringReader(
+          asciiOptimization: true,
+        ).vTableGetNullable(buffer, rootOffset, 12);
+        final materialIdsJsonParam = const fb.StringReader(
+          asciiOptimization: true,
+        ).vTableGet(buffer, rootOffset, 14, '');
+        final chunkIdsJsonParam = const fb.StringReader(
+          asciiOptimization: true,
+        ).vTableGet(buffer, rootOffset, 16, '');
+        final frequencyParam = const fb.Int64Reader().vTableGet(
+          buffer,
+          rootOffset,
+          18,
+          0,
+        );
+        final relatedConceptIdsJsonParam = const fb.StringReader(
+          asciiOptimization: true,
+        ).vTableGetNullable(buffer, rootOffset, 20);
+        final subjectParam = const fb.StringReader(
+          asciiOptimization: true,
+        ).vTableGetNullable(buffer, rootOffset, 22);
+        final importanceParam = const fb.Float64Reader().vTableGet(
+          buffer,
+          rootOffset,
+          24,
+          0,
+        );
+        final createdAtParam = DateTime.fromMillisecondsSinceEpoch(
+          const fb.Int64Reader().vTableGet(buffer, rootOffset, 26, 0),
+        );
+        final updatedAtParam = updatedAtValue == null
+            ? null
+            : DateTime.fromMillisecondsSinceEpoch(updatedAtValue);
+        final object =
+            Concept(
+                name: nameParam,
+                normalizedName: normalizedNameParam,
+                type: typeParam,
+                definition: definitionParam,
+                materialIdsJson: materialIdsJsonParam,
+                chunkIdsJson: chunkIdsJsonParam,
+                frequency: frequencyParam,
+                relatedConceptIdsJson: relatedConceptIdsJsonParam,
+                subject: subjectParam,
+                importance: importanceParam,
+                createdAt: createdAtParam,
+                updatedAt: updatedAtParam,
+              )
+              ..id = const fb.Int64Reader().vTableGet(buffer, rootOffset, 4, 0)
+              ..materialIds = const fb.ListReader<int>(
+                fb.Int64Reader(),
+                lazy: false,
+              ).vTableGet(buffer, rootOffset, 30, [])
+              ..chunkIds = const fb.ListReader<int>(
+                fb.Int64Reader(),
+                lazy: false,
+              ).vTableGet(buffer, rootOffset, 32, [])
+              ..relatedConceptIds = const fb.ListReader<int>(
+                fb.Int64Reader(),
+                lazy: false,
+              ).vTableGet(buffer, rootOffset, 34, []);
+
+        return object;
+      },
+    ),
   };
 
   return obx_int.ModelDefinition(model, bindings);
@@ -716,6 +1515,71 @@ class Chunk_ {
   /// See [Chunk.metadataJson].
   static final metadataJson = obx.QueryStringProperty<Chunk>(
     _entities[0].properties[9],
+  );
+
+  /// See [Chunk.tokenCount].
+  static final tokenCount = obx.QueryIntegerProperty<Chunk>(
+    _entities[0].properties[10],
+  );
+
+  /// See [Chunk.confidenceScore].
+  static final confidenceScore = obx.QueryDoubleProperty<Chunk>(
+    _entities[0].properties[11],
+  );
+
+  /// See [Chunk.extractionMethod].
+  static final extractionMethod = obx.QueryStringProperty<Chunk>(
+    _entities[0].properties[12],
+  );
+
+  /// See [Chunk.startOffset].
+  static final startOffset = obx.QueryIntegerProperty<Chunk>(
+    _entities[0].properties[13],
+  );
+
+  /// See [Chunk.endOffset].
+  static final endOffset = obx.QueryIntegerProperty<Chunk>(
+    _entities[0].properties[14],
+  );
+
+  /// See [Chunk.importance].
+  static final importance = obx.QueryDoubleProperty<Chunk>(
+    _entities[0].properties[15],
+  );
+
+  /// See [Chunk.isKeyPoint].
+  static final isKeyPoint = obx.QueryBooleanProperty<Chunk>(
+    _entities[0].properties[16],
+  );
+
+  /// See [Chunk.keywordsJson].
+  static final keywordsJson = obx.QueryStringProperty<Chunk>(
+    _entities[0].properties[17],
+  );
+
+  /// See [Chunk.entitiesJson].
+  static final entitiesJson = obx.QueryStringProperty<Chunk>(
+    _entities[0].properties[18],
+  );
+
+  /// See [Chunk.conceptTagsJson].
+  static final conceptTagsJson = obx.QueryStringProperty<Chunk>(
+    _entities[0].properties[19],
+  );
+
+  /// See [Chunk.parentChunkId].
+  static final parentChunkId = obx.QueryIntegerProperty<Chunk>(
+    _entities[0].properties[20],
+  );
+
+  /// See [Chunk.relatedChunkIdsJson].
+  static final relatedChunkIdsJson = obx.QueryStringProperty<Chunk>(
+    _entities[0].properties[21],
+  );
+
+  /// See [Chunk.sentenceCount].
+  static final sentenceCount = obx.QueryIntegerProperty<Chunk>(
+    _entities[0].properties[22],
   );
 }
 
@@ -813,6 +1677,61 @@ class Material_ {
   static final chunkCount = obx.QueryIntegerProperty<Material>(
     _entities[2].properties[11],
   );
+
+  /// See [Material.lastAccessedAt].
+  static final lastAccessedAt = obx.QueryDateProperty<Material>(
+    _entities[2].properties[12],
+  );
+
+  /// See [Material.processingMode].
+  static final processingMode = obx.QueryStringProperty<Material>(
+    _entities[2].properties[13],
+  );
+
+  /// See [Material.pageCount].
+  static final pageCount = obx.QueryIntegerProperty<Material>(
+    _entities[2].properties[14],
+  );
+
+  /// See [Material.extractionQuality].
+  static final extractionQuality = obx.QueryDoubleProperty<Material>(
+    _entities[2].properties[15],
+  );
+
+  /// See [Material.fileHash].
+  static final fileHash = obx.QueryStringProperty<Material>(
+    _entities[2].properties[16],
+  );
+
+  /// See [Material.fileSizeBytes].
+  static final fileSizeBytes = obx.QueryIntegerProperty<Material>(
+    _entities[2].properties[17],
+  );
+
+  /// See [Material.totalTokens].
+  static final totalTokens = obx.QueryIntegerProperty<Material>(
+    _entities[2].properties[18],
+  );
+
+  /// See [Material.totalWords].
+  static final totalWords = obx.QueryIntegerProperty<Material>(
+    _entities[2].properties[19],
+  );
+
+  /// See [Material.language].
+  static final language = obx.QueryStringProperty<Material>(
+    _entities[2].properties[20],
+  );
+
+  /// See [Material.detectedTopicsJson].
+  static final detectedTopicsJson = obx.QueryStringProperty<Material>(
+    _entities[2].properties[21],
+  );
+
+  /// See [Material.keywordsJson].
+  static final keywordsJson = obx.QueryStringProperty<Material>(
+    _entities[2].properties[22],
+  );
 }
 
 /// [Message] entity fields to define ObjectBox queries.
@@ -855,5 +1774,164 @@ class Message_ {
   /// See [Message.sequenceIndex].
   static final sequenceIndex = obx.QueryIntegerProperty<Message>(
     _entities[3].properties[7],
+  );
+}
+
+/// [Page] entity fields to define ObjectBox queries.
+class Page_ {
+  /// See [Page.id].
+  static final id = obx.QueryIntegerProperty<Page>(_entities[4].properties[0]);
+
+  /// See [Page.material].
+  static final material = obx.QueryRelationToOne<Page, Material>(
+    _entities[4].properties[1],
+  );
+
+  /// See [Page.pageNumber].
+  static final pageNumber = obx.QueryIntegerProperty<Page>(
+    _entities[4].properties[2],
+  );
+
+  /// See [Page.imagePath].
+  static final imagePath = obx.QueryStringProperty<Page>(
+    _entities[4].properties[3],
+  );
+
+  /// See [Page.width].
+  static final width = obx.QueryDoubleProperty<Page>(
+    _entities[4].properties[4],
+  );
+
+  /// See [Page.height].
+  static final height = obx.QueryDoubleProperty<Page>(
+    _entities[4].properties[5],
+  );
+
+  /// See [Page.extractionMethod].
+  static final extractionMethod = obx.QueryStringProperty<Page>(
+    _entities[4].properties[6],
+  );
+
+  /// See [Page.textDensity].
+  static final textDensity = obx.QueryDoubleProperty<Page>(
+    _entities[4].properties[7],
+  );
+
+  /// See [Page.hasEquations].
+  static final hasEquations = obx.QueryBooleanProperty<Page>(
+    _entities[4].properties[8],
+  );
+
+  /// See [Page.hasDiagrams].
+  static final hasDiagrams = obx.QueryBooleanProperty<Page>(
+    _entities[4].properties[9],
+  );
+
+  /// See [Page.hasTables].
+  static final hasTables = obx.QueryBooleanProperty<Page>(
+    _entities[4].properties[10],
+  );
+
+  /// See [Page.hasCode].
+  static final hasCode = obx.QueryBooleanProperty<Page>(
+    _entities[4].properties[11],
+  );
+
+  /// See [Page.summary].
+  static final summary = obx.QueryStringProperty<Page>(
+    _entities[4].properties[12],
+  );
+
+  /// See [Page.chunkCount].
+  static final chunkCount = obx.QueryIntegerProperty<Page>(
+    _entities[4].properties[13],
+  );
+
+  /// See [Page.createdAt].
+  static final createdAt = obx.QueryDateProperty<Page>(
+    _entities[4].properties[14],
+  );
+}
+
+/// [Concept] entity fields to define ObjectBox queries.
+class Concept_ {
+  /// See [Concept.id].
+  static final id = obx.QueryIntegerProperty<Concept>(
+    _entities[5].properties[0],
+  );
+
+  /// See [Concept.name].
+  static final name = obx.QueryStringProperty<Concept>(
+    _entities[5].properties[1],
+  );
+
+  /// See [Concept.normalizedName].
+  static final normalizedName = obx.QueryStringProperty<Concept>(
+    _entities[5].properties[2],
+  );
+
+  /// See [Concept.type].
+  static final type = obx.QueryStringProperty<Concept>(
+    _entities[5].properties[3],
+  );
+
+  /// See [Concept.definition].
+  static final definition = obx.QueryStringProperty<Concept>(
+    _entities[5].properties[4],
+  );
+
+  /// See [Concept.materialIdsJson].
+  static final materialIdsJson = obx.QueryStringProperty<Concept>(
+    _entities[5].properties[5],
+  );
+
+  /// See [Concept.chunkIdsJson].
+  static final chunkIdsJson = obx.QueryStringProperty<Concept>(
+    _entities[5].properties[6],
+  );
+
+  /// See [Concept.frequency].
+  static final frequency = obx.QueryIntegerProperty<Concept>(
+    _entities[5].properties[7],
+  );
+
+  /// See [Concept.relatedConceptIdsJson].
+  static final relatedConceptIdsJson = obx.QueryStringProperty<Concept>(
+    _entities[5].properties[8],
+  );
+
+  /// See [Concept.subject].
+  static final subject = obx.QueryStringProperty<Concept>(
+    _entities[5].properties[9],
+  );
+
+  /// See [Concept.importance].
+  static final importance = obx.QueryDoubleProperty<Concept>(
+    _entities[5].properties[10],
+  );
+
+  /// See [Concept.createdAt].
+  static final createdAt = obx.QueryDateProperty<Concept>(
+    _entities[5].properties[11],
+  );
+
+  /// See [Concept.updatedAt].
+  static final updatedAt = obx.QueryDateProperty<Concept>(
+    _entities[5].properties[12],
+  );
+
+  /// See [Concept.materialIds].
+  static final materialIds = obx.QueryIntegerVectorProperty<Concept>(
+    _entities[5].properties[13],
+  );
+
+  /// See [Concept.chunkIds].
+  static final chunkIds = obx.QueryIntegerVectorProperty<Concept>(
+    _entities[5].properties[14],
+  );
+
+  /// See [Concept.relatedConceptIds].
+  static final relatedConceptIds = obx.QueryIntegerVectorProperty<Concept>(
+    _entities[5].properties[15],
   );
 }

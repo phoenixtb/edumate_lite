@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:mobx/mobx.dart';
 import '../domain/entities/material.dart';
 import 'processing_state.dart';
@@ -6,6 +7,9 @@ import '../infrastructure/database/objectbox.dart';
 import '../config/service_locator.dart';
 
 part 'material_store.g.dart';
+
+/// Callback for when scanned PDF is detected
+typedef ScannedPdfCallback = Future<bool> Function(String message, MaterialInput input);
 
 class MaterialStore = MaterialStoreBase with _$MaterialStore;
 
@@ -22,9 +26,28 @@ abstract class MaterialStoreBase with Store {
   @observable
   String? error;
 
+  /// Pending scanned PDF that needs user decision
+  @observable
+  MaterialInput? pendingScannedPdfInput;
+
+  /// Message for pending scanned PDF
+  @observable
+  String? pendingScannedPdfMessage;
+
+  /// Material ID for pending scanned PDF (to delete if user chooses vision mode)
+  @observable
+  int? pendingScannedPdfMaterialId;
+
   @action
   void clearError() {
     error = null;
+  }
+
+  @action
+  void clearPendingScannedPdf() {
+    pendingScannedPdfInput = null;
+    pendingScannedPdfMessage = null;
+    pendingScannedPdfMaterialId = null;
   }
 
   /// Map of ongoing processing jobs
@@ -78,6 +101,24 @@ abstract class MaterialStoreBase with Store {
             progress.stage,
           );
 
+          // Handle scanned PDF detection (special stage, not an error)
+          if (progress.stage == 'scanned_pdf_detected') {
+            state.updateProgress(
+              progress.progress,
+              progress.message ?? 'Scanned PDF detected',
+              'scanned_pdf_detected',
+            );
+            
+            // Store pending info for UI to show dialog
+            pendingScannedPdfInput = input;
+            pendingScannedPdfMessage = progress.message;
+            pendingScannedPdfMaterialId = progress.material?.id;
+            
+            // Remove from processing jobs
+            processingJobs.remove(tempId);
+            return;
+          }
+
           if (progress.error != null) {
             state.setError(progress.error!);
             error = progress.error;
@@ -127,6 +168,46 @@ abstract class MaterialStoreBase with Store {
     }
   }
 
+  /// Retry processing a scanned PDF with Vision mode
+  @action
+  Future<void> retryWithVisionMode() async {
+    if (pendingScannedPdfInput == null) return;
+
+    final input = pendingScannedPdfInput!;
+    final materialId = pendingScannedPdfMaterialId;
+
+    // Clear pending state
+    clearPendingScannedPdf();
+
+    // Delete the failed material if it exists
+    if (materialId != null) {
+      await _materialProcessor.deleteMaterial(materialId);
+      materials.removeWhere((m) => m.id == materialId);
+    }
+
+    // Create new input with thorough mode
+    final visionInput = MaterialInput(
+      title: input.title,
+      sourceType: input.sourceType,
+      content: input.content,
+      subject: input.subject,
+      gradeLevel: input.gradeLevel,
+      processingMode: ProcessingMode.thorough,
+    );
+
+    // Reprocess with vision
+    await processMaterial(visionInput);
+  }
+
+  /// Cancel scanned PDF retry and keep the material as-is (partial extraction)
+  @action
+  void cancelScannedPdfRetry() {
+    // Just clear the pending state, keep the material with whatever was extracted
+    clearPendingScannedPdf();
+    // Reload materials to show the one with scanned_detected status
+    loadMaterials();
+  }
+
   @action
   Future<void> deleteMaterial(int materialId) async {
     isLoading = true;
@@ -144,6 +225,38 @@ abstract class MaterialStoreBase with Store {
         isLoading = false;
       },
     );
+  }
+
+  /// Update material metadata (title, subject, grade)
+  @action
+  Future<void> updateMaterial({
+    required int materialId,
+    required String title,
+    String? subject,
+    int? gradeLevel,
+  }) async {
+    error = null;
+
+    try {
+      // Find material in list
+      final index = materials.indexWhere((m) => m.id == materialId);
+      if (index < 0) {
+        error = 'Material not found';
+        return;
+      }
+
+      // Update in database
+      final material = materials[index];
+      material.title = title;
+      material.subject = subject;
+      material.gradeLevel = gradeLevel;
+      _objectBox.materialBox.put(material);
+
+      // Update in observable list (triggers UI refresh)
+      materials[index] = material;
+    } catch (e) {
+      error = 'Failed to update material: $e';
+    }
   }
 
   @action
@@ -253,6 +366,81 @@ abstract class MaterialStoreBase with Store {
     );
     
     processMaterial(input);
+  }
+
+  /// Get materials related to a given material
+  /// Based on shared keywords/topics and subject
+  List<Material> getRelatedMaterials(int materialId, {int limit = 5}) {
+    final material = materials.firstWhere(
+      (m) => m.id == materialId,
+      orElse: () => Material(title: '', sourceType: ''),
+    );
+    if (material.id == 0) return [];
+
+    // Get keywords from this material
+    final keywords = _parseKeywords(material.keywordsJson);
+    final topics = _parseKeywords(material.detectedTopicsJson);
+
+    // Score other materials based on overlap
+    final scored = <MapEntry<Material, double>>[];
+
+    for (final other in materials) {
+      if (other.id == materialId || other.status != 'completed') continue;
+
+      double score = 0.0;
+
+      // Subject match (high weight)
+      if (material.subject != null &&
+          material.subject == other.subject) {
+        score += 0.4;
+      }
+
+      // Grade level proximity
+      if (material.gradeLevel != null && other.gradeLevel != null) {
+        final diff = (material.gradeLevel! - other.gradeLevel!).abs();
+        if (diff == 0) {
+          score += 0.2;
+        } else if (diff == 1) {
+          score += 0.1;
+        }
+      }
+
+      // Keyword overlap
+      final otherKeywords = _parseKeywords(other.keywordsJson);
+      final keywordOverlap = keywords
+          .where((k) => otherKeywords.contains(k))
+          .length;
+      if (keywords.isNotEmpty) {
+        score += 0.2 * (keywordOverlap / keywords.length);
+      }
+
+      // Topic overlap
+      final otherTopics = _parseKeywords(other.detectedTopicsJson);
+      final topicOverlap = topics
+          .where((t) => otherTopics.contains(t))
+          .length;
+      if (topics.isNotEmpty) {
+        score += 0.2 * (topicOverlap / topics.length);
+      }
+
+      if (score > 0.1) {
+        scored.add(MapEntry(other, score));
+      }
+    }
+
+    // Sort by score descending
+    scored.sort((a, b) => b.value.compareTo(a.value));
+
+    return scored.take(limit).map((e) => e.key).toList();
+  }
+
+  Set<String> _parseKeywords(String? json) {
+    if (json == null || json.isEmpty) return {};
+    try {
+      return Set<String>.from(jsonDecode(json) as List);
+    } catch (_) {
+      return {};
+    }
   }
 }
 

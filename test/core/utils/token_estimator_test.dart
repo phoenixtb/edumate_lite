@@ -11,15 +11,15 @@ void main() {
       const text = 'Hello world';
       final tokens = TokenEstimator.estimate(text);
       expect(tokens, greaterThan(0));
-      // 2 words * 1.3 = 2.6, ceil = 3
-      expect(tokens, 3);
+      // 2 words * 2.5 = 5
+      expect(tokens, 5);
     });
 
     test('estimate includes punctuation', () {
       const text = 'Hello, world!';
       final tokens = TokenEstimator.estimate(text);
-      // 2 words * 1.3 + 2 punctuation * 0.5 = 2.6 + 1 = 3.6, ceil = 4
-      expect(tokens, 4);
+      // 2 words * 2.5 + 2 punctuation * 0.5 = 5 + 1 = 6
+      expect(tokens, 6);
     });
 
     test('fitsInLimit returns true when under limit', () {
@@ -56,7 +56,7 @@ void main() {
     test('estimate handles multiple spaces correctly', () {
       const text = 'Hello    world';
       final tokens = TokenEstimator.estimate(text);
-      expect(tokens, 3); // Still 2 words
+      expect(tokens, 5); // Still 2 words * 2.5
     });
   });
 }

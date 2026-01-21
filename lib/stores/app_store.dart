@@ -27,7 +27,7 @@ abstract class AppStoreBase with Store {
   bool isPhi4ModelReady = false;
 
   @observable
-  bool preferPhi4ForText = true; // Default to DeepSeek when available
+  bool preferPhi4ForText = false; // Default to Gemma (more compatible)
 
   @observable
   bool devModeEnabled = false;
@@ -42,8 +42,8 @@ abstract class AppStoreBase with Store {
     themeMode =
         ThemeMode.values[themeModeIndex.clamp(0, ThemeMode.values.length - 1)];
 
-    // DeepSeek preference
-    preferPhi4ForText = prefs.getBool(_keyPreferDeepSeek) ?? true;
+    // Qwen preference (default false - Gemma is more compatible)
+    preferPhi4ForText = prefs.getBool(_keyPreferDeepSeek) ?? false;
 
     // Dev mode
     devModeEnabled = prefs.getBool(_keyDevMode) ?? false;

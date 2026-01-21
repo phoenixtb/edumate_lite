@@ -16,13 +16,14 @@ enum ActiveModelType {
   none,
   gemma,
   phi4, // Deprecated - has MediaPipe template issues
-  deepseek,
+  deepseek, // Deprecated - use qwen instead
+  qwen,
 }
 
 /// Manages model loading/unloading for inference
 /// 
 /// flutter_gemma only supports ONE active model at a time.
-/// This manager handles switching between Gemma and DeepSeek.
+/// This manager handles switching between Gemma and Qwen 2.5.
 class ModelManager {
   ModelManager._();
   static final ModelManager instance = ModelManager._();
@@ -30,21 +31,26 @@ class ModelManager {
   ActiveModelType _activeModel = ActiveModelType.none;
   InferenceModel? _currentModel;
   bool _isLoading = false;
-  bool _returnToDeepseekAfterVision = false;
+  bool _returnToQwenAfterVision = false;
 
   ActiveModelType get activeModel => _activeModel;
   InferenceModel? get currentModel => _currentModel;
   bool get isLoading => _isLoading;
-  bool get shouldReturnToPhi4 => _returnToDeepseekAfterVision; // Backwards compat
+  bool get shouldReturnToPhi4 => _returnToQwenAfterVision; // Backwards compat
 
-  /// Check if DeepSeek is installed
-  Future<bool> isDeepseekInstalled() async {
+  /// Check if Qwen is installed
+  Future<bool> isQwenInstalled() async {
     try {
       final models = await FlutterGemma.listInstalledModels();
-      return models.any((m) => m.toLowerCase().contains('deepseek'));
+      return models.any((m) => m.toLowerCase().contains('qwen'));
     } catch (e) {
       return false;
     }
+  }
+  
+  /// Backwards compat - check if "DeepSeek" is installed (now checks Qwen)
+  Future<bool> isDeepseekInstalled() async {
+    return isQwenInstalled();
   }
 
   /// Check if Phi-4 is installed (deprecated - kept for backwards compat)
@@ -60,15 +66,15 @@ class ModelManager {
   /// Load initial model based on user preference
   Future<void> loadInitialModel() async {
     final appStore = getIt<AppStore>();
-    final deepseekAvailable = await isDeepseekInstalled();
+    final qwenAvailable = await isQwenInstalled();
     
-    if (deepseekAvailable) {
-      appStore.setPhi4ModelReady(true); // Reuse the flag for DeepSeek
+    if (qwenAvailable) {
+      appStore.setPhi4ModelReady(true); // Reuse the flag for Qwen
     }
 
-    if (deepseekAvailable && appStore.preferPhi4ForText) {
-      AppLogger.info('🚀 [ModelManager] Loading DeepSeek (user preference)');
-      await _loadDeepseek();
+    if (qwenAvailable && appStore.preferPhi4ForText) {
+      AppLogger.info('🚀 [ModelManager] Loading Qwen 2.5 (user preference)');
+      await _loadQwen();
     } else {
       AppLogger.info('🚀 [ModelManager] Loading Gemma 3n (default)');
       await _loadGemma();
@@ -89,20 +95,20 @@ class ModelManager {
 
     AppLogger.info('🔄 [ModelManager] Switching to Gemma...');
     
-    // Remember to return to DeepSeek later
-    if (markReturnToDeepseek && _activeModel == ActiveModelType.deepseek) {
-      _returnToDeepseekAfterVision = true;
-      AppLogger.debug('📌 [ModelManager] Will return to DeepSeek after vision task');
+    // Remember to return to Qwen later
+    if (markReturnToDeepseek && _activeModel == ActiveModelType.qwen) {
+      _returnToQwenAfterVision = true;
+      AppLogger.debug('📌 [ModelManager] Will return to Qwen after vision task');
     }
 
     await _unloadCurrentModel();
     return await _loadGemma();
   }
 
-  /// Switch to DeepSeek (for better text reasoning)
-  Future<bool> switchToDeepseek() async {
-    if (_activeModel == ActiveModelType.deepseek) {
-      AppLogger.debug('✅ [ModelManager] DeepSeek already active');
+  /// Switch to Qwen 2.5 (for better text reasoning)
+  Future<bool> switchToQwen() async {
+    if (_activeModel == ActiveModelType.qwen) {
+      AppLogger.debug('✅ [ModelManager] Qwen already active');
       return true;
     }
 
@@ -111,52 +117,57 @@ class ModelManager {
       return false;
     }
 
-    final deepseekAvailable = await isDeepseekInstalled();
-    if (!deepseekAvailable) {
-      AppLogger.warning('⚠️ [ModelManager] DeepSeek not installed');
+    final qwenAvailable = await isQwenInstalled();
+    if (!qwenAvailable) {
+      AppLogger.warning('⚠️ [ModelManager] Qwen not installed');
       return false;
     }
 
-    AppLogger.info('🔄 [ModelManager] Switching to DeepSeek...');
+    AppLogger.info('🔄 [ModelManager] Switching to Qwen 2.5...');
     await _unloadCurrentModel();
-    return await _loadDeepseek();
+    return await _loadQwen();
+  }
+  
+  /// Backwards compat - switch to DeepSeek (actually loads Qwen)
+  Future<bool> switchToDeepseek() async {
+    return await switchToQwen();
   }
 
-  /// Backwards compat - switch to Phi-4 (actually loads DeepSeek)
+  /// Backwards compat - switch to Phi-4 (actually loads Qwen)
   Future<bool> switchToPhi4() async {
-    return await switchToDeepseek();
+    return await switchToQwen();
   }
 
-  /// Return to DeepSeek if flagged (after vision task)
+  /// Return to Qwen if flagged (after vision task)
   Future<void> returnToPhi4IfNeeded() async {
-    if (!_returnToDeepseekAfterVision) return;
+    if (!_returnToQwenAfterVision) return;
     
     final appStore = getIt<AppStore>();
     if (!appStore.preferPhi4ForText) {
-      _returnToDeepseekAfterVision = false;
+      _returnToQwenAfterVision = false;
       return;
     }
 
-    AppLogger.info('🔄 [ModelManager] Returning to DeepSeek (after vision)');
-    _returnToDeepseekAfterVision = false;
-    await switchToDeepseek();
+    AppLogger.info('🔄 [ModelManager] Returning to Qwen (after vision)');
+    _returnToQwenAfterVision = false;
+    await switchToQwen();
   }
 
   /// Ensure correct model is loaded for text query
   Future<bool> ensureModelForText() async {
     final appStore = getIt<AppStore>();
     
-    // Check if we need to return to DeepSeek
-    if (_returnToDeepseekAfterVision && appStore.preferPhi4ForText) {
-      AppLogger.info('🔄 [ModelManager] Switching back to DeepSeek for text');
-      _returnToDeepseekAfterVision = false;
-      return await switchToDeepseek();
+    // Check if we need to return to Qwen
+    if (_returnToQwenAfterVision && appStore.preferPhi4ForText) {
+      AppLogger.info('🔄 [ModelManager] Switching back to Qwen for text');
+      _returnToQwenAfterVision = false;
+      return await switchToQwen();
     }
     
     // Check if preference matches active model
     if (appStore.preferPhi4ForText && appStore.isPhi4ModelReady) {
-      if (_activeModel != ActiveModelType.deepseek) {
-        return await switchToDeepseek();
+      if (_activeModel != ActiveModelType.qwen) {
+        return await switchToQwen();
       }
     } else {
       if (_activeModel != ActiveModelType.gemma) {
@@ -169,7 +180,7 @@ class ModelManager {
 
   /// Clear return flag (user manually switched preference)
   void clearReturnFlag() {
-    _returnToDeepseekAfterVision = false;
+    _returnToQwenAfterVision = false;
   }
 
   Future<bool> _loadGemma() async {
@@ -203,48 +214,44 @@ class ModelManager {
     }
   }
 
-  Future<bool> _loadDeepseek() async {
+  Future<bool> _loadQwen() async {
     _isLoading = true;
     final startTime = DateTime.now();
     // #region agent log
-    _debugLogMM('H', 'loadDeepseek_start', {'time': startTime.toIso8601String(), 'prevActiveModel': _activeModel.toString()});
+    _debugLogMM('H', 'loadQwen_start', {'time': startTime.toIso8601String(), 'prevActiveModel': _activeModel.toString()});
     // #endregion
     try {
-      // Check if DeepSeek is already installed (on disk)
+      // Check if Qwen is already installed (on disk)
       final models = await FlutterGemma.listInstalledModels();
-      final deepseekName = models.firstWhere(
-        (m) => m.toLowerCase().contains('deepseek'),
+      final qwenName = models.firstWhere(
+        (m) => m.toLowerCase().contains('qwen'),
         orElse: () => '',
       );
       
       // #region agent log
-      _debugLogMM('H', 'installedModels', {'models': models, 'deepseekName': deepseekName, 'elapsedMs': DateTime.now().difference(startTime).inMilliseconds});
+      _debugLogMM('H', 'installedModels', {'models': models, 'qwenName': qwenName, 'elapsedMs': DateTime.now().difference(startTime).inMilliseconds});
       // #endregion
 
-      if (deepseekName.isEmpty) {
-        AppLogger.warning('⚠️ [ModelManager] DeepSeek not found in installed models');
+      if (qwenName.isEmpty) {
+        AppLogger.warning('⚠️ [ModelManager] Qwen not found in installed models');
         return await _loadGemma();
       }
 
       // CRITICAL: installModel() must be called to load model INTO MEMORY
-      // listInstalledModels() only shows what's on disk, not what's loaded!
-      // This is why Gemma takes time (loading into memory) but DeepSeek was instant (not loading)
-      AppLogger.info('🔄 [ModelManager] Loading DeepSeek into memory (this may take time)...');
+      AppLogger.info('🔄 [ModelManager] Loading Qwen 2.5 into memory (this may take time)...');
       
       // #region agent log
-      _debugLogMM('H', 'before_installModel', {'deepseekName': deepseekName, 'elapsedMs': DateTime.now().difference(startTime).inMilliseconds});
+      _debugLogMM('H', 'before_installModel', {'qwenName': qwenName, 'elapsedMs': DateTime.now().difference(startTime).inMilliseconds});
       // #endregion
       
       // Use fromBundled() to load from internal storage where the download was saved
-      // This is similar to how Gemma uses fromAsset() but for downloaded models
       await FlutterGemma.installModel(
-        modelType: ModelType.deepSeek,
+        modelType: ModelType.qwen,
       )
-          .fromBundled(deepseekName) // Use the installed model name from listInstalledModels()
+          .fromBundled(qwenName)
           .withProgress((progress) {
-            // Log progress
             if (progress.toInt() % 10 == 0) {
-              AppLogger.debug('📦 [ModelManager] DeepSeek loading: ${progress.toInt()}%');
+              AppLogger.debug('📦 [ModelManager] Qwen loading: ${progress.toInt()}%');
             }
           })
           .install();
@@ -253,17 +260,17 @@ class ModelManager {
       // #region agent log
       _debugLogMM('H', 'after_installModel', {'installTimeMs': installTime});
       // #endregion
-      AppLogger.info('📦 [ModelManager] DeepSeek install completed (${installTime}ms)');
+      AppLogger.info('📦 [ModelManager] Qwen install completed (${installTime}ms)');
 
       // #region agent log
-      _debugLogMM('H', 'before_getActiveModel', {'tryingBackend': 'gpu', 'maxTokens': 1024, 'elapsedMs': DateTime.now().difference(startTime).inMilliseconds});
+      _debugLogMM('H', 'before_getActiveModel', {'tryingBackend': 'cpu', 'maxTokens': 1024, 'elapsedMs': DateTime.now().difference(startTime).inMilliseconds});
       // #endregion
       
-      // Use GPU backend with max tokens at GPU cache limit
+      // Qwen uses CPU backend per flutter_gemma defaults
       _currentModel = await FlutterGemma.getActiveModel(
-        maxTokens: 1280, // GPU cache limit - prompts must stay under this
+        maxTokens: 1024, // Qwen default
         supportImage: false,
-        preferredBackend: PreferredBackend.gpu,
+        preferredBackend: PreferredBackend.cpu,
       );
       
       final getActiveTime = DateTime.now().difference(startTime).inMilliseconds;
@@ -275,19 +282,19 @@ class ModelManager {
       await Future.delayed(const Duration(milliseconds: 500));
       
       if (_currentModel == null) {
-        AppLogger.warning('⚠️ [ModelManager] DeepSeek model is null after load');
+        AppLogger.warning('⚠️ [ModelManager] Qwen model is null after load');
         return await _loadGemma();
       }
 
-      _activeModel = ActiveModelType.deepseek;
+      _activeModel = ActiveModelType.qwen;
       final totalTime = DateTime.now().difference(startTime).inMilliseconds;
       // #region agent log
-      _debugLogMM('H', 'loadDeepseek_success', {'activeModel': _activeModel.toString(), 'totalTimeMs': totalTime});
+      _debugLogMM('H', 'loadQwen_success', {'activeModel': _activeModel.toString(), 'totalTimeMs': totalTime});
       // #endregion
-      AppLogger.info('✅ [ModelManager] DeepSeek loaded successfully (${totalTime}ms)');
+      AppLogger.info('✅ [ModelManager] Qwen 2.5 loaded successfully (${totalTime}ms)');
       return true;
     } catch (e) {
-      AppLogger.error('❌ [ModelManager] Failed to load DeepSeek: $e');
+      AppLogger.error('❌ [ModelManager] Failed to load Qwen: $e');
       // Fall back to Gemma
       AppLogger.info('🔄 [ModelManager] Falling back to Gemma');
       _isLoading = false; // Reset before recursive call
@@ -313,6 +320,6 @@ class ModelManager {
   /// Dispose all resources
   Future<void> dispose() async {
     await _unloadCurrentModel();
-    _returnToDeepseekAfterVision = false;
+    _returnToQwenAfterVision = false;
   }
 }

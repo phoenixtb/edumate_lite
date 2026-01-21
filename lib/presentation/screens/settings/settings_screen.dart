@@ -222,7 +222,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           ),
                         ),
                         Text(
-                          appStore.shouldUsePhi4 ? 'DeepSeek R1' : 'Gemma 3n E2B',
+                          appStore.shouldUsePhi4 ? 'Qwen 2.5' : 'Gemma 3n E2B',
                           style: TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.bold,
@@ -300,76 +300,56 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     ),
                   ),
                   const Divider(height: 1),
-                  // DeepSeek R1 (optional download)
-                  _buildPhi4Tile(
-                    context,
-                    appStore,
-                    downloadStore,
-                    downloadService,
-                    colorScheme,
-                  ),
+                  // Qwen 2.5 - Experimental (disabled for now)
+                  _buildQwenComingSoonTile(colorScheme),
                 ],
               ),
             ),
           ),
           
-          // Model Preference Section (always show, but toggle only works if DeepSeek is ready)
-          Observer(
-            builder: (_) {
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const SizedBox(height: 24),
-                  _SectionHeader(title: 'Text Model Preference'),
-                  Card(
-                    child: Column(
-                      children: [
-                        SwitchListTile(
-                          secondary: Container(
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              color: Colors.blue.withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: const Icon(Icons.auto_awesome, color: Colors.blue),
-                          ),
-                          title: const Text('Use DeepSeek for text'),
-                          subtitle: Text(
-                            appStore.isPhi4ModelReady
-                                ? 'Better quality answers'
-                                : 'Download DeepSeek first',
-                          ),
-                          value: appStore.preferPhi4ForText && appStore.isPhi4ModelReady,
-                          onChanged: appStore.isPhi4ModelReady
-                              ? (value) async {
-                                  if (value) {
-                                    await _switchToDeepSeek(context, appStore);
-                                  } else {
-                                    await _switchToGemma(context, appStore);
-                                  }
-                                }
-                              : null,
-                        ),
-                        Padding(
-                          padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-                          child: Text(
-                            !appStore.isPhi4ModelReady
-                                ? 'Download DeepSeek R1 from above to enable this option.'
-                                : appStore.preferPhi4ForText
-                                    ? 'DeepSeek will be used for text queries. Gemma 3n for images.'
-                                    : 'Gemma 3n will be used for all queries.',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: colorScheme.onSurfaceVariant,
-                            ),
-                          ),
-                        ),
-                      ],
+          // Model Preference Section - Disabled (Qwen experimental)
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const SizedBox(height: 24),
+              _SectionHeader(title: 'Text Model Preference'),
+              Card(
+                child: ListTile(
+                  leading: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.grey.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Icon(Icons.auto_awesome, color: Colors.grey),
+                  ),
+                  title: const Text(
+                    'Use Qwen for text',
+                    style: TextStyle(color: Colors.grey),
+                  ),
+                  subtitle: const Text(
+                    'Gemma 3n is used for all queries',
+                    style: TextStyle(fontSize: 12),
+                  ),
+                  trailing: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.orange.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(4),
+                      border: Border.all(color: Colors.orange.withOpacity(0.3)),
+                    ),
+                    child: const Text(
+                      'Coming Soon',
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.orange,
+                      ),
                     ),
                   ),
-                ],
-              );
-            },
+                ),
+              ),
+            ],
           ),
 
           const SizedBox(height: 24),
@@ -440,6 +420,51 @@ class _SettingsScreenState extends State<SettingsScreen> {
     return store.completedMaterials.fold(0, (sum, m) => sum + m.chunkCount);
   }
 
+  /// Disabled Qwen tile with "Coming Soon" label
+  Widget _buildQwenComingSoonTile(ColorScheme colorScheme) {
+    return ListTile(
+      leading: Container(
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: Colors.grey.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: const Icon(Icons.science_outlined, color: Colors.grey),
+      ),
+      title: Row(
+        children: [
+          const Text(
+            'Qwen 2.5',
+            style: TextStyle(color: Colors.grey),
+          ),
+          const SizedBox(width: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            decoration: BoxDecoration(
+              color: Colors.orange.withOpacity(0.15),
+              borderRadius: BorderRadius.circular(4),
+              border: Border.all(color: Colors.orange.withOpacity(0.4)),
+            ),
+            child: const Text(
+              'EXPERIMENTAL',
+              style: TextStyle(
+                fontSize: 9,
+                fontWeight: FontWeight.bold,
+                color: Colors.orange,
+              ),
+            ),
+          ),
+        ],
+      ),
+      subtitle: const Text(
+        'Coming soon • Not compatible with all devices',
+        style: TextStyle(fontSize: 11, color: Colors.grey),
+      ),
+      trailing: const Icon(Icons.lock_outline, color: Colors.grey, size: 20),
+    );
+  }
+
+  // ignore: unused_element
   Widget _buildPhi4Tile(
     BuildContext context,
     AppStore appStore,
@@ -476,7 +501,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   : Colors.amber,
         ),
       ),
-      title: const Text('DeepSeek R1'),
+      title: const Text('Qwen 2.5'),
       subtitle: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -583,7 +608,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     downloadService,
                   ),
                   icon: const Icon(Icons.download, size: 20),
-                  tooltip: 'Download DeepSeek R1',
+                  tooltip: 'Download Qwen 2.5',
                   style: IconButton.styleFrom(
                     backgroundColor: Colors.amber.withOpacity(0.2),
                     foregroundColor: Colors.amber.shade700,
@@ -600,15 +625,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Download DeepSeek R1?'),
+        title: const Text('Download Qwen 2.5?'),
         content: const Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('This will download ~2.5 GB of data.'),
+            Text('This will download ~1.6 GB of data.'),
             SizedBox(height: 8),
             Text(
-              'DeepSeek provides better reasoning with "thinking mode" for text questions.',
+              'Qwen 2.5 provides better text quality with function calling support.',
               style: TextStyle(fontSize: 13, color: Colors.grey),
             ),
           ],
@@ -644,14 +669,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
           
           if (!context.mounted) return;
           
-          // Ask user if they want to switch to DeepSeek now
+          // Ask user if they want to switch to Qwen now
           final shouldSwitch = await showDialog<bool>(
             context: context,
             builder: (ctx) => AlertDialog(
-              title: const Text('DeepSeek Ready!'),
+              title: const Text('Qwen 2.5 Ready!'),
               content: const Text(
-                'DeepSeek R1 downloaded successfully.\n\n'
-                'Would you like to switch to DeepSeek for text queries now? '
+                'Qwen 2.5 downloaded successfully.\n\n'
+                'Would you like to switch to Qwen for text queries now? '
                 'This will take about 30-60 seconds to load.',
               ),
               actions: [
@@ -685,15 +710,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
           children: [
             CircularProgressIndicator(),
             SizedBox(width: 20),
-            Expanded(child: Text('Loading DeepSeek R1...\nThis may take up to a minute.')),
+            Expanded(child: Text('Loading Qwen 2.5...\nThis may take up to a minute.')),
           ],
         ),
       ),
     );
     
     try {
-      appStore.setPreferPhi4ForText(true);
-      final success = await ModelManager.instance.switchToDeepseek();
+      final success = await ModelManager.instance.switchToQwen();
+      
+      // Only update preference on success
+      if (success) {
+        appStore.setPreferPhi4ForText(true);
+      }
       
       if (context.mounted) {
         Navigator.pop(context); // Close loading dialog
@@ -701,13 +730,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(success 
-              ? 'Switched to DeepSeek R1 for text queries' 
-              : 'Failed to switch model'),
+              ? 'Switched to Qwen 2.5 for text queries' 
+              : 'Failed to switch model - preference unchanged'),
             backgroundColor: success ? Colors.green : Colors.red,
           ),
         );
       }
     } catch (e) {
+      // Don't change preference on error
       if (context.mounted) {
         Navigator.pop(context);
         ScaffoldMessenger.of(context).showSnackBar(
@@ -737,9 +767,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
     
     try {
-      appStore.setPreferPhi4ForText(false);
       ModelManager.instance.clearReturnFlag();
       final success = await ModelManager.instance.switchToGemma();
+      
+      // Only update preference on success
+      if (success) {
+        appStore.setPreferPhi4ForText(false);
+      }
       
       if (context.mounted) {
         Navigator.pop(context); // Close loading dialog
@@ -748,12 +782,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
           SnackBar(
             content: Text(success 
               ? 'Switched to Gemma 3n for all queries' 
-              : 'Failed to switch model'),
+              : 'Failed to switch model - preference unchanged'),
             backgroundColor: success ? Colors.green : Colors.red,
           ),
         );
       }
     } catch (e) {
+      // Don't change preference on error
       if (context.mounted) {
         Navigator.pop(context);
         ScaffoldMessenger.of(context).showSnackBar(
@@ -770,9 +805,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
     return showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Delete DeepSeek R1?'),
+        title: const Text('Delete Qwen 2.5?'),
         content: const Text(
-          'This will free up ~2.5 GB of storage. You can re-download it anytime.',
+          'This will free up ~1.6 GB of storage. You can re-download it anytime.',
         ),
         actions: [
           TextButton(

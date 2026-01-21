@@ -312,9 +312,9 @@ class _ModelTestScreenState extends State<ModelTestScreen> {
       if (targetType == ActiveModelType.gemma) {
         final success = await ModelManager.instance.switchToGemma();
         _addLog(success ? '✅ Switched to Gemma' : '❌ Failed to switch to Gemma');
-      } else if (targetType == ActiveModelType.phi4 || targetType == ActiveModelType.deepseek) {
-        final success = await ModelManager.instance.switchToDeepseek();
-        _addLog(success ? '✅ Switched to DeepSeek' : '❌ Failed to switch to DeepSeek');
+      } else if (targetType == ActiveModelType.qwen || targetType == ActiveModelType.phi4 || targetType == ActiveModelType.deepseek) {
+        final success = await ModelManager.instance.switchToQwen();
+        _addLog(success ? '✅ Switched to Qwen' : '❌ Failed to switch to Qwen');
       }
       
       await _loadModelInfo();
@@ -375,7 +375,7 @@ class _ModelTestScreenState extends State<ModelTestScreen> {
                     activeModel.name.toUpperCase(),
                     style: const TextStyle(fontWeight: FontWeight.bold),
                   ),
-                  backgroundColor: (activeModel == ActiveModelType.phi4 || activeModel == ActiveModelType.deepseek)
+                  backgroundColor: (activeModel == ActiveModelType.qwen || activeModel == ActiveModelType.phi4 || activeModel == ActiveModelType.deepseek)
                       ? Colors.orange.shade100
                       : activeModel == ActiveModelType.gemma 
                           ? Colors.blue.shade100
@@ -387,8 +387,8 @@ class _ModelTestScreenState extends State<ModelTestScreen> {
                   child: const Text('Gemma'),
                 ),
                 TextButton(
-                  onPressed: _isGenerating ? null : () => _switchModel(ActiveModelType.deepseek),
-                  child: const Text('DeepSeek'),
+                  onPressed: _isGenerating ? null : () => _switchModel(ActiveModelType.qwen),
+                  child: const Text('Qwen'),
                 ),
               ],
             ),

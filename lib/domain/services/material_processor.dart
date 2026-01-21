@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:typed_data';
 import 'package:dartz/dartz.dart';
 import '../interfaces/input_source.dart';
 import '../interfaces/chunking_strategy.dart';
@@ -6,11 +7,16 @@ import '../interfaces/embedding_provider.dart';
 import '../interfaces/vector_store.dart';
 import '../entities/material.dart';
 import '../entities/chunk.dart';
+import '../entities/page.dart';
+import 'page_image_service.dart';
+import 'keyword_extractor.dart';
 import '../../objectbox.g.dart' as obx;
 import '../../core/errors/failures.dart';
 import '../../core/errors/exceptions.dart';
 import '../../core/utils/logger.dart';
 import '../../core/constants/app_constants.dart';
+import '../../infrastructure/services/notification_service.dart';
+import '../../config/service_locator.dart';
 
 /// Material Processor
 /// Orchestrates the full pipeline from input to indexed chunks
@@ -20,6 +26,10 @@ class MaterialProcessor {
   final EmbeddingProvider embeddingProvider;
   final VectorStore vectorStore;
   final obx.Box<Material> materialBox;
+  final obx.Box<Page> pageBox;
+
+  /// Vision adapter for thorough PDF processing
+  final InputSource? visionPdfAdapter;
 
   MaterialProcessor({
     required this.inputAdapters,
@@ -27,23 +37,31 @@ class MaterialProcessor {
     required this.embeddingProvider,
     required this.vectorStore,
     required this.materialBox,
+    required this.pageBox,
+    this.visionPdfAdapter,
   });
 
   /// Process a new material with chunking in background isolate
   Stream<ProcessingProgress> process(MaterialInput input) async* {
+    final modeLabel = input.processingMode == ProcessingMode.thorough
+        ? 'thorough/vision'
+        : 'fast';
     AppLogger.info(
-      '🎯 Starting material processing: "${input.title}" (${input.sourceType})',
+      '🎯 Starting material processing: "${input.title}" (${input.sourceType}, mode: $modeLabel)',
     );
     Material? material;
 
     try {
-      // Create material entity
+      // Create material entity with enhanced metadata
       material = Material(
         title: input.title,
         sourceType: input.sourceType,
         subject: input.subject,
         gradeLevel: input.gradeLevel,
         status: 'processing',
+        processingMode: input.processingMode == ProcessingMode.thorough
+            ? 'thorough'
+            : 'fast',
       );
 
       final materialId = materialBox.put(material);
@@ -58,12 +76,25 @@ class MaterialProcessor {
         material: material,
       );
 
-      // Find appropriate input adapter
+      // Track pages for Page entity creation
+      final pageDataMap = <int, _PageData>{};
+
+      // Find appropriate input adapter based on source type and processing mode
       InputSource? adapter;
-      for (final a in inputAdapters) {
-        if (a.sourceType == input.sourceType) {
-          adapter = a;
-          break;
+
+      // For PDFs with thorough mode, use vision adapter if available
+      if (input.sourceType == 'pdf' &&
+          input.processingMode == ProcessingMode.thorough &&
+          visionPdfAdapter != null) {
+        adapter = visionPdfAdapter;
+        AppLogger.info('📄 Using Vision PDF adapter for thorough processing');
+      } else {
+        // Standard adapter selection
+        for (final a in inputAdapters) {
+          if (a.sourceType == input.sourceType) {
+            adapter = a;
+            break;
+          }
         }
       }
 
@@ -74,10 +105,13 @@ class MaterialProcessor {
       }
 
       // Extract content
+      final extractMessage = input.processingMode == ProcessingMode.thorough
+          ? 'Extracting content with AI Vision (this may take a while)...'
+          : 'Extracting content...';
       yield ProcessingProgress(
         progress: 0.1,
         stage: 'extracting',
-        message: 'Extracting content...',
+        message: extractMessage,
         material: material,
       );
 
@@ -89,7 +123,31 @@ class MaterialProcessor {
       await for (final extractProgress in adapter.extractContent(
         input.content,
       )) {
+        // Handle errors, including scanned PDF detection
         if (extractProgress.error != null) {
+          // Check if this is a scanned PDF detection (not a hard failure)
+          if (extractProgress.error!.startsWith('SCANNED_PDF:')) {
+            final message = extractProgress.error!.replaceFirst('SCANNED_PDF:', '');
+            
+            // Mark material as needing vision processing
+            material.status = 'scanned_detected';
+            material.errorMessage = message;
+            materialBox.put(material);
+
+            AppLogger.warning('⚠️ Scanned PDF detected: $message');
+
+            // Yield special stage for UI to handle
+            yield ProcessingProgress(
+              progress: 0.3,
+              stage: 'scanned_pdf_detected',
+              message: message,
+              material: material,
+              error: null, // Not a failure, just needs user decision
+            );
+            return;
+          }
+
+          // Regular error
           material.status = 'failed';
           material.errorMessage = extractProgress.error;
           materialBox.put(material);
@@ -110,6 +168,39 @@ class MaterialProcessor {
           message: extractProgress.currentPage ?? 'Extracting...',
           material: material,
         );
+
+        // Collect page data for Page entity creation
+        if (extractProgress.pageNumber != null) {
+          final pageNum = extractProgress.pageNumber!;
+          pageDataMap.putIfAbsent(
+            pageNum,
+            () => _PageData(
+              pageNumber: pageNum,
+              extractionMethod: extractProgress.extractionMethod ?? 'text',
+              textDensity: extractProgress.textDensity ?? 1.0,
+              width: extractProgress.pageWidth,
+              height: extractProgress.pageHeight,
+            ),
+          );
+
+          // Save page image if provided (vision mode)
+          if (extractProgress.pageImageBytes != null &&
+              extractProgress.pageImageBytes!.isNotEmpty) {
+            final imagePath = await PageImageService.instance.savePageImage(
+              materialId: material.id,
+              pageNumber: pageNum,
+              imageBytes: Uint8List.fromList(extractProgress.pageImageBytes!),
+            );
+            if (imagePath != null) {
+              pageDataMap[pageNum]!.imagePath = imagePath;
+            }
+          }
+        }
+
+        // Update total pages count
+        if (extractProgress.totalPages != null) {
+          material.pageCount = extractProgress.totalPages!;
+        }
 
         // Process batch of extracted text immediately
         if (extractProgress.extractedText != null &&
@@ -167,9 +258,22 @@ class MaterialProcessor {
 
               // Create and store chunk entities immediately (free memory)
               final chunksToStore = <Chunk>[];
+              final extractor = KeywordExtractor.instance;
+
               for (var j = 0; j < batchTexts.length; j++) {
                 final chunkResult = batchChunkResults[i + j];
                 final embedding = batchEmbeddings[j];
+
+                // Extract keywords and entities for semantic enrichment
+                final keywords = extractor.extractKeywords(
+                  chunkResult.content,
+                  maxKeywords: 8,
+                );
+                final entities = extractor.extractEntities(chunkResult.content);
+                final conceptTags = extractor.extractConceptTags(
+                  chunkResult.content,
+                  maxTags: 5,
+                );
 
                 final chunk = Chunk(
                   content: chunkResult.content,
@@ -179,6 +283,12 @@ class MaterialProcessor {
                   sequenceIndex: sequenceIndex++,
                   chunkType: chunkResult.chunkType,
                   metadataJson: chunkResult.metadata.toString(),
+                  keywordsJson: extractor.keywordsToJson(keywords),
+                  entitiesJson: extractor.entitiesToJson(entities),
+                  conceptTagsJson: extractor.keywordsToJson(conceptTags),
+                  tokenCount: chunkResult.metadata['actual_tokens'] as int? ?? 0,
+                  extractionMethod: input.processingMode == ProcessingMode.thorough ? 'vision' : 'text',
+                  confidenceScore: input.processingMode == ProcessingMode.thorough ? 0.85 : 1.0,
                 );
 
                 chunk.material.target = material;
@@ -190,6 +300,9 @@ class MaterialProcessor {
                 '💾 Storing ${chunksToStore.length} chunks from batch $batchNum',
               );
               await vectorStore.storeBatch(chunksToStore);
+
+              // Note: Concept extraction is done on-demand via LLM
+              // User will be notified to extract concepts after processing
 
               totalChunksProcessed += chunksToStore.length;
 
@@ -225,9 +338,43 @@ class MaterialProcessor {
         '✅ Total chunks processed and stored: $totalChunksProcessed',
       );
 
+      // Save Page entities with metadata
+      if (pageDataMap.isNotEmpty) {
+        yield ProcessingProgress(
+          progress: 0.95,
+          stage: 'saving_pages',
+          message: 'Saving page metadata...',
+          material: material,
+        );
+
+        for (final pageData in pageDataMap.values) {
+          final page = Page(
+            pageNumber: pageData.pageNumber,
+            imagePath: pageData.imagePath,
+            width: pageData.width,
+            height: pageData.height,
+            extractionMethod: pageData.extractionMethod,
+            textDensity: pageData.textDensity,
+          );
+          page.material.target = material;
+          pageBox.put(page);
+        }
+
+        AppLogger.debug('💾 Saved ${pageDataMap.length} Page entities');
+      }
+
+      // Calculate extraction quality based on average text density
+      if (pageDataMap.isNotEmpty) {
+        final avgDensity = pageDataMap.values
+                .map((p) => p.textDensity)
+                .reduce((a, b) => a + b) /
+            pageDataMap.length;
+        material.extractionQuality = avgDensity.clamp(0.0, 1.0);
+      }
+
       // All chunks already stored incrementally per-batch above
 
-      // Update material with final count
+      // Update material with final count and metadata
       material.status = 'completed';
       material.processedAt = DateTime.now();
       material.chunkCount = totalChunksProcessed;
@@ -236,6 +383,16 @@ class MaterialProcessor {
       AppLogger.info(
         '🎉 Material processing completed: "${material.title}" ($totalChunksProcessed chunks)',
       );
+
+      // Notify user to extract concepts
+      try {
+        await NotificationService.instance.showProcessingComplete(
+          materialId: material.id,
+          materialTitle: material.title,
+        );
+      } catch (e) {
+        AppLogger.debug('⚠️ Notification skipped: $e');
+      }
 
       yield ProcessingProgress(
         progress: 1.0,
@@ -315,11 +472,22 @@ class MaterialProcessor {
     }
   }
 
-  /// Delete material and its chunks
+  /// Delete material and its chunks, pages, and page images
   Future<Either<Failure, Unit>> deleteMaterial(int materialId) async {
     try {
       // Delete chunks
       await vectorStore.deleteByMaterial(materialId);
+
+      // Delete page entities
+      final pagesToDelete = pageBox
+          .query(obx.Page_.material.equals(materialId))
+          .build()
+          .findIds();
+      pageBox.removeMany(pagesToDelete);
+      AppLogger.debug('🗑️ Deleted ${pagesToDelete.length} pages for material $materialId');
+
+      // Delete page images from filesystem
+      await PageImageService.instance.deleteForMaterial(materialId);
 
       // Delete material
       final removed = materialBox.remove(materialId);
@@ -334,6 +502,17 @@ class MaterialProcessor {
   }
 }
 
+/// Processing mode for materials
+enum ProcessingMode {
+  /// Fast: Use programmatic text extraction (Syncfusion for PDFs)
+  /// Best for: text-based PDFs, when speed matters
+  fast,
+
+  /// Thorough: Use AI Vision to process each page as an image
+  /// Best for: scanned PDFs, complex layouts, equations, diagrams
+  thorough,
+}
+
 /// Input for material processing
 class MaterialInput {
   final String title;
@@ -342,12 +521,16 @@ class MaterialInput {
   final String? subject;
   final int? gradeLevel;
 
+  /// Processing mode - affects extraction quality vs speed
+  final ProcessingMode processingMode;
+
   MaterialInput({
     required this.title,
     required this.sourceType,
     required this.content,
     this.subject,
     this.gradeLevel,
+    this.processingMode = ProcessingMode.fast,
   });
 }
 
@@ -369,5 +552,24 @@ class ProcessingProgress {
     this.result,
     this.material,
     this.error,
+  });
+}
+
+/// Helper class to collect page data during extraction
+class _PageData {
+  final int pageNumber;
+  final String extractionMethod;
+  final double textDensity;
+  final double? width;
+  final double? height;
+  String? imagePath;
+
+  _PageData({
+    required this.pageNumber,
+    required this.extractionMethod,
+    required this.textDensity,
+    this.width,
+    this.height,
+    this.imagePath,
   });
 }

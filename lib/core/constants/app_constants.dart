@@ -23,12 +23,12 @@ class AppConstants {
   static const String phi4ModelName = 'Phi-4-mini-instruct';
   static const int phi4ModelSizeMb = 2500; // ~2.5GB
 
-  // DeepSeek R1 Distill Qwen 1.5B (text-only, with thinking mode)
-  // From: litert-community/DeepSeek-R1-Distill-Qwen-1.5B (PUBLIC - no auth needed)
-  static const String deepseekModelUrl =
-      'https://huggingface.co/litert-community/DeepSeek-R1-Distill-Qwen-1.5B/resolve/main/deepseek_q8_ekv1280.task';
-  static const String deepseekModelName = 'DeepSeek-R1';
-  static const int deepseekModelSizeMb = 1700; // ~1.7GB
+  // Qwen 2.5 1.5B Instruct (text-only, function calling support)
+  // From: litert-community/Qwen2.5-1.5B-Instruct (PUBLIC - no auth needed)
+  static const String qwenModelUrl =
+      'https://huggingface.co/litert-community/Qwen2.5-1.5B-Instruct/resolve/main/Qwen2.5-1.5B-Instruct_multi-prefill-seq_q8_ekv1280.task';
+  static const String qwenModelName = 'Qwen 2.5';
+  static const int qwenModelSizeMb = 1600; // ~1.6GB
 
   static const int embeddingDimension = 768;
   static const int maxEmbeddingTokens =
@@ -44,6 +44,12 @@ class AppConstants {
   static const int maxChunkSizeTokens =
       1950; // Hard limit (with 98-token buffer)
   static const int chunkOverlapTokens = 150; // Overlap for continuity
+  
+  // Word-based chunking (for educational strategy, ~1.3 tokens per word)
+  // Production uses TokenValidatedChunkingStrategy with actual tokenizer
+  static const int targetChunkWords = 1400; // ~1800 tokens
+  static const int maxChunkWords = 1500; // ~1950 tokens  
+  static const int chunkOverlapWords = 115; // ~150 tokens
 
   // RAG Configuration
   static const int retrievalTopK = 3; // Reduced from 5 for better focus
