@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
 import '../../../domain/entities/concept.dart';
 import '../../../domain/entities/material.dart' as app;
+import '../../../domain/entities/chunk.dart';
 import '../../../stores/concept_store.dart';
 import '../../../stores/material_store.dart';
+import '../../../infrastructure/database/objectbox_vector_store.dart';
 import '../../../domain/services/inference_router.dart';
 import 'concept_chip.dart';
 
@@ -78,13 +80,46 @@ class _ConceptDetailSheetState extends State<ConceptDetailSheet> {
 
     try {
       final router = GetIt.I<InferenceRouter>();
-      final systemPrompt = 'You are a helpful educational assistant. Explain terms simply and concisely.';
-      final query = 'Explain the term "${widget.concept.name}" in simple, educational terms. Keep your explanation concise (2-3 sentences) and suitable for a student. If it\'s a technical term, include a brief example.';
+      final vectorStore = GetIt.I<ObjectBoxVectorStore>();
+
+      // Build RAG context from chunks where this concept appears
+      final chunkIds = widget.concept.chunkIds;
+      String ragContext = '';
+      
+      if (chunkIds.isNotEmpty) {
+        // Get up to 3 chunks for context
+        final chunks = <Chunk>[];
+        for (final chunkId in chunkIds.take(3)) {
+          final chunk = vectorStore.getChunkById(chunkId);
+          if (chunk != null) {
+            chunks.add(chunk);
+          }
+        }
+        
+        if (chunks.isNotEmpty) {
+          ragContext = chunks.map((c) => c.content).join('\n\n---\n\n');
+        }
+      }
+
+      // System prompt that prevents hallucination
+      final systemPrompt = '''You are a helpful educational assistant explaining concepts to students.
+
+IMPORTANT RULES:
+- Base your explanation ONLY on the provided context
+- If context is provided, use it to give an accurate, grounded explanation
+- If no context is provided or the context doesn't explain the term well, give a brief general definition
+- DO NOT make up facts or details not supported by the context
+- Keep explanations concise (2-3 sentences)
+- Use simple language suitable for students''';
+
+      final query = ragContext.isNotEmpty
+          ? 'Based on the context below, explain the term "${widget.concept.name}" in simple terms.\n\nContext:\n$ragContext'
+          : 'Briefly explain the term "${widget.concept.name}" in simple, educational terms (2-3 sentences).';
 
       final buffer = StringBuffer();
       await for (final chunk in router.generate(
         systemPrompt: systemPrompt,
-        context: '',
+        context: '', // Context is embedded in query for this use case
         query: query,
       )) {
         buffer.write(chunk);

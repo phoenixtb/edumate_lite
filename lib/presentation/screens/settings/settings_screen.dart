@@ -102,6 +102,34 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
           const SizedBox(height: 24),
 
+          // Processing Section
+          _SectionHeader(title: 'Processing'),
+          Card(
+            child: Observer(
+              builder: (_) => SwitchListTile(
+                secondary: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: colorScheme.primaryContainer,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(
+                    Icons.auto_awesome,
+                    color: colorScheme.primary,
+                  ),
+                ),
+                title: const Text('Extract Concepts During Processing'),
+                subtitle: const Text(
+                  'Uses AI to identify key concepts while importing materials. Slower but automatic.',
+                ),
+                value: appStore.extractConceptsDuringProcessing,
+                onChanged: (value) => appStore.setExtractConceptsDuringProcessing(value),
+              ),
+            ),
+          ),
+
+          const SizedBox(height: 24),
+
           // Developer Section
           _SectionHeader(title: 'Developer'),
           Card(

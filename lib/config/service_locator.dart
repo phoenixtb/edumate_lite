@@ -21,6 +21,7 @@ import '../stores/material_store.dart';
 import '../stores/model_download_store.dart';
 import '../stores/worksheet_store.dart';
 import '../stores/concept_store.dart';
+import '../stores/task_queue_store.dart';
 import '../domain/services/model_download_service.dart';
 
 final getIt = GetIt.instance;
@@ -121,6 +122,7 @@ Future<void> setupServiceLocator() async {
   getIt.registerSingleton<ModelDownloadStore>(ModelDownloadStore());
   getIt.registerSingleton<WorksheetStore>(WorksheetStore());
   getIt.registerSingleton<ConceptStore>(ConceptStore(objectBox));
+  getIt.registerSingleton<TaskQueueStore>(TaskQueueStore());
 
   // Model Download Service (bundled assets - no token needed)
   getIt.registerSingleton<ModelDownloadService>(

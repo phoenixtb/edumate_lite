@@ -10,12 +10,15 @@ import '../entities/chunk.dart';
 import '../entities/page.dart';
 import 'page_image_service.dart';
 import 'keyword_extractor.dart';
+import 'llm_concept_extractor.dart';
+import 'inference_router.dart';
 import '../../objectbox.g.dart' as obx;
 import '../../core/errors/failures.dart';
 import '../../core/errors/exceptions.dart';
 import '../../core/utils/logger.dart';
 import '../../core/constants/app_constants.dart';
 import '../../infrastructure/services/notification_service.dart';
+import '../../stores/app_store.dart';
 import '../../config/service_locator.dart';
 
 /// Material Processor
@@ -299,10 +302,30 @@ class MaterialProcessor {
               AppLogger.debug(
                 '💾 Storing ${chunksToStore.length} chunks from batch $batchNum',
               );
-              await vectorStore.storeBatch(chunksToStore);
+              final storedIds = await vectorStore.storeBatch(chunksToStore);
 
-              // Note: Concept extraction is done on-demand via LLM
-              // User will be notified to extract concepts after processing
+              // Optional: Extract concepts during processing if enabled
+              final appStore = getIt<AppStore>();
+              if (appStore.extractConceptsDuringProcessing) {
+                try {
+                  final router = getIt<InferenceRouter>();
+                  final llmExtractor = LLMConceptExtractor(router);
+                  
+                  for (var idx = 0; idx < chunksToStore.length; idx++) {
+                    final chunk = chunksToStore[idx];
+                    final chunkId = storedIds[idx];
+                    await llmExtractor.extractAndStore(
+                      content: chunk.content,
+                      materialId: material.id,
+                      chunkId: chunkId,
+                      subject: input.subject,
+                    );
+                  }
+                  AppLogger.debug('💡 Extracted concepts from batch $batchNum');
+                } catch (e) {
+                  AppLogger.debug('⚠️ Concept extraction skipped: $e');
+                }
+              }
 
               totalChunksProcessed += chunksToStore.length;
 

@@ -1,11 +1,16 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
+import '../../../core/utils/logger.dart';
 import '../../../domain/entities/material.dart' as app;
 import '../../../domain/entities/concept.dart';
+import '../../../domain/entities/chunk.dart';
+import '../../../domain/entities/ai_task.dart';
 import '../../../domain/services/llm_concept_extractor.dart';
 import '../../../domain/services/inference_router.dart';
 import '../../../stores/material_store.dart';
 import '../../../stores/concept_store.dart';
+import '../../../stores/task_queue_store.dart';
 import '../../../infrastructure/database/objectbox_vector_store.dart';
 import '../../widgets/concept/concept_chip.dart';
 import '../../widgets/concept/concept_detail_sheet.dart';
@@ -15,10 +20,7 @@ import '../../widgets/concept/related_material_card.dart';
 class MaterialDetailScreen extends StatefulWidget {
   final app.Material material;
 
-  const MaterialDetailScreen({
-    super.key,
-    required this.material,
-  });
+  const MaterialDetailScreen({super.key, required this.material});
 
   @override
   State<MaterialDetailScreen> createState() => _MaterialDetailScreenState();
@@ -35,6 +37,8 @@ class _MaterialDetailScreenState extends State<MaterialDetailScreen>
   List<_RelatedMaterialData> _relatedMaterials = [];
   String _selectedType = 'all';
   bool _isExtracting = false;
+  int _extractionProgress = 0;
+  int _extractionTotal = 0;
 
   @override
   void initState() {
@@ -62,68 +66,89 @@ class _MaterialDetailScreenState extends State<MaterialDetailScreen>
   Future<void> _extractConcepts() async {
     if (_isExtracting) return;
 
+    // Get chunks for this material
+    final chunks = await vectorStore.getByMaterial(widget.material.id);
+
+    if (chunks.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('No chunks found for this material')),
+        );
+      }
+      return;
+    }
+
     setState(() => _isExtracting = true);
 
-    try {
-      // Get chunks for this material
-      final chunks = await vectorStore.getByMaterial(widget.material.id);
-      
-      if (chunks.isEmpty) {
+    // Create the extraction task
+    final taskQueue = GetIt.I<TaskQueueStore>();
+    final materialId = widget.material.id;
+    final materialTitle = widget.material.title;
+    final subject = widget.material.subject;
+
+    final task = AITask(
+      type: TaskType.conceptExtraction,
+      description:
+          'Extracting from "${materialTitle.length > 30 ? '${materialTitle.substring(0, 30)}...' : materialTitle}"',
+      priority: TaskPriority.low,
+      materialId: materialId,
+      materialTitle: materialTitle,
+      execute: () => _createExtractionStream(chunks, materialId, subject),
+      onComplete: (success, error) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('No chunks found for this material')),
-          );
+          setState(() => _isExtracting = false);
+          _loadData();
+          if (success) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(
+                  'Concepts extracted from ${chunks.length} chunks',
+                ),
+              ),
+            );
+          }
         }
-        return;
-      }
+      },
+    );
 
-      // Use LLM-based extraction for intelligent concept discovery
-      final router = GetIt.I<InferenceRouter>();
-      final llmExtractor = LLMConceptExtractor(router);
-      
-      int totalConcepts = 0;
-      int processedChunks = 0;
+    taskQueue.enqueue(task);
 
-      // Process chunks (limit to avoid long wait times)
-      final chunksToProcess = chunks.take(10).toList(); // Process first 10 chunks
-      
-      for (final chunk in chunksToProcess) {
-        final extracted = await llmExtractor.extractAndStore(
-          content: chunk.content,
-          materialId: widget.material.id,
-          chunkId: chunk.id,
-          subject: widget.material.subject,
-        );
-        totalConcepts += extracted.length;
-        processedChunks++;
-        
-        // Update progress
-        if (mounted) {
-          setState(() {}); // Trigger rebuild to show progress
-        }
-      }
-
-      // Reload data
-      _loadData();
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Extracted $totalConcepts concepts from $processedChunks chunks'),
-          ),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error extracting concepts: $e')),
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _isExtracting = false);
-      }
+    // Show brief confirmation - FAB will show ongoing progress
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Extracting concepts from ${chunks.length} chunks...'),
+          duration: const Duration(seconds: 2),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
     }
+  }
+
+  /// Creates a stream that yields progress updates during extraction
+  Stream<double> _createExtractionStream(
+    List<Chunk> chunks,
+    int materialId,
+    String? subject,
+  ) async* {
+    AppLogger.info('🔄 [EXTRACTION] Starting for material=$materialId, chunks=${chunks.length}');
+    final router = GetIt.I<InferenceRouter>();
+    final llmExtractor = LLMConceptExtractor(router);
+
+    for (var i = 0; i < chunks.length; i++) {
+      final chunk = chunks[i];
+      AppLogger.debug('🔄 [EXTRACTION] Processing chunk ${i + 1}/${chunks.length} (id=${chunk.id})');
+      final concepts = await llmExtractor.extractAndStore(
+        content: chunk.content,
+        materialId: materialId,
+        chunkId: chunk.id,
+        subject: subject,
+      );
+      AppLogger.debug('🔄 [EXTRACTION] Chunk ${i + 1} yielded ${concepts.length} concepts');
+
+      yield (i + 1) / chunks.length;
+    }
+    AppLogger.info('✅ [EXTRACTION] Completed for material=$materialId');
   }
 
   Future<void> _regenerateConcepts() async {
@@ -164,11 +189,11 @@ class _MaterialDetailScreenState extends State<MaterialDetailScreen>
       final materialIds = concept.materialIds;
       materialIds.remove(widget.material.id);
       concept.materialIds = materialIds;
-      
+
       // Also remove chunk IDs for this material's chunks
       // Note: We're not tracking which chunks belong to which material in concepts,
       // so we just leave chunkIds as is for now
-      
+
       if (materialIds.isEmpty) {
         // Delete concept if no materials reference it
         conceptStore.deleteConcept(concept.id);
@@ -207,8 +232,7 @@ class _MaterialDetailScreenState extends State<MaterialDetailScreen>
 
         // Grade proximity
         if (widget.material.gradeLevel != null && other.gradeLevel != null) {
-          final diff =
-              (widget.material.gradeLevel! - other.gradeLevel!).abs();
+          final diff = (widget.material.gradeLevel! - other.gradeLevel!).abs();
           if (diff == 0) {
             score += 0.2;
           } else if (diff == 1) {
@@ -216,11 +240,13 @@ class _MaterialDetailScreenState extends State<MaterialDetailScreen>
           }
         }
 
-        _relatedMaterials.add(_RelatedMaterialData(
-          material: other,
-          sharedConcepts: shared,
-          score: score.clamp(0.0, 1.0),
-        ));
+        _relatedMaterials.add(
+          _RelatedMaterialData(
+            material: other,
+            sharedConcepts: shared,
+            score: score.clamp(0.0, 1.0),
+          ),
+        );
       }
     }
 
@@ -239,7 +265,9 @@ class _MaterialDetailScreenState extends State<MaterialDetailScreen>
           children: [
             CircleAvatar(
               radius: 18,
-              backgroundColor: _getSourceColor(material.sourceType).withValues(alpha: 0.2),
+              backgroundColor: _getSourceColor(
+                material.sourceType,
+              ).withValues(alpha: 0.2),
               child: Icon(
                 _getSourceIcon(material.sourceType),
                 color: _getSourceColor(material.sourceType),
@@ -263,7 +291,9 @@ class _MaterialDetailScreenState extends State<MaterialDetailScreen>
                     Text(
                       material.subject!,
                       style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                        color: theme.colorScheme.onSurface.withValues(
+                          alpha: 0.6,
+                        ),
                       ),
                     ),
                 ],
@@ -399,14 +429,24 @@ class _MaterialDetailScreenState extends State<MaterialDetailScreen>
             padding: const EdgeInsets.all(16),
             child: Column(
               children: [
-                _buildDetailRow(context, 'Source Type', material.sourceType.toUpperCase()),
+                _buildDetailRow(
+                  context,
+                  'Source Type',
+                  material.sourceType.toUpperCase(),
+                ),
                 const Divider(height: 24),
-                _buildDetailRow(context, 'Subject', material.subject ?? 'Not set'),
+                _buildDetailRow(
+                  context,
+                  'Subject',
+                  material.subject ?? 'Not set',
+                ),
                 const Divider(height: 24),
                 _buildDetailRow(
                   context,
                   'Grade Level',
-                  material.gradeLevel != null ? 'Grade ${material.gradeLevel}' : 'Not set',
+                  material.gradeLevel != null
+                      ? 'Grade ${material.gradeLevel}'
+                      : 'Not set',
                 ),
                 const Divider(height: 24),
                 _buildDetailRow(context, 'Status', material.status),
@@ -431,15 +471,20 @@ class _MaterialDetailScreenState extends State<MaterialDetailScreen>
           Wrap(
             spacing: 8,
             runSpacing: 8,
-            children: _concepts.take(8).map((c) => ConceptChip(
-              concept: c,
-              showFrequency: true,
-              onTap: () => ConceptDetailSheet.show(
-                context,
-                c,
-                onMaterialTap: _navigateToMaterial,
-              ),
-            )).toList(),
+            children: _concepts
+                .take(8)
+                .map(
+                  (c) => ConceptChip(
+                    concept: c,
+                    showFrequency: true,
+                    onTap: () => ConceptDetailSheet.show(
+                      context,
+                      c,
+                      onMaterialTap: _navigateToMaterial,
+                    ),
+                  ),
+                )
+                .toList(),
           ),
           if (_concepts.length > 8)
             Padding(
@@ -485,6 +530,17 @@ class _MaterialDetailScreenState extends State<MaterialDetailScreen>
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 24),
+              if (_isExtracting && _extractionTotal > 0) ...[
+                Text(
+                  'Processing chunk $_extractionProgress of $_extractionTotal',
+                  style: theme.textTheme.bodySmall,
+                ),
+                const SizedBox(height: 8),
+                LinearProgressIndicator(
+                  value: _extractionProgress / _extractionTotal,
+                ),
+                const SizedBox(height: 16),
+              ],
               FilledButton.icon(
                 onPressed: _isExtracting ? null : _extractConcepts,
                 icon: _isExtracting
@@ -494,7 +550,9 @@ class _MaterialDetailScreenState extends State<MaterialDetailScreen>
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
                     : const Icon(Icons.auto_awesome),
-                label: Text(_isExtracting ? 'Extracting...' : 'Extract Concepts Now'),
+                label: Text(
+                  _isExtracting ? 'Extracting...' : 'Extract Concepts Now',
+                ),
               ),
             ],
           ),
@@ -526,15 +584,19 @@ class _MaterialDetailScreenState extends State<MaterialDetailScreen>
                 child: SingleChildScrollView(
                   scrollDirection: Axis.horizontal,
                   child: Row(
-                    children: types.map((type) => Padding(
-                      padding: const EdgeInsets.only(right: 8),
-                      child: ConceptTypeFilter(
-                        type: type,
-                        selected: _selectedType == type,
-                        count: typeCounts[type] ?? 0,
-                        onTap: () => setState(() => _selectedType = type),
-                      ),
-                    )).toList(),
+                    children: types
+                        .map(
+                          (type) => Padding(
+                            padding: const EdgeInsets.only(right: 8),
+                            child: ConceptTypeFilter(
+                              type: type,
+                              selected: _selectedType == type,
+                              count: typeCounts[type] ?? 0,
+                              onTap: () => setState(() => _selectedType = type),
+                            ),
+                          ),
+                        )
+                        .toList(),
                   ),
                 ),
               ),
@@ -666,7 +728,11 @@ class _MaterialDetailScreenState extends State<MaterialDetailScreen>
     );
   }
 
-  Widget _buildSectionHeader(BuildContext context, String title, IconData icon) {
+  Widget _buildSectionHeader(
+    BuildContext context,
+    String title,
+    IconData icon,
+  ) {
     final theme = Theme.of(context);
 
     return Row(
@@ -766,10 +832,12 @@ class _MaterialDetailScreenState extends State<MaterialDetailScreen>
                   ),
                   items: [
                     const DropdownMenuItem(value: null, child: Text('None')),
-                    ...subjects.map((s) => DropdownMenuItem(
-                      value: s,
-                      child: Text(s[0].toUpperCase() + s.substring(1)),
-                    )),
+                    ...subjects.map(
+                      (s) => DropdownMenuItem(
+                        value: s,
+                        child: Text(s[0].toUpperCase() + s.substring(1)),
+                      ),
+                    ),
                   ],
                   onChanged: (v) => setState(() => selectedSubject = v),
                 ),
@@ -782,10 +850,10 @@ class _MaterialDetailScreenState extends State<MaterialDetailScreen>
                   ),
                   items: [
                     const DropdownMenuItem(value: null, child: Text('None')),
-                    ...grades.map((g) => DropdownMenuItem(
-                      value: g,
-                      child: Text('Grade $g'),
-                    )),
+                    ...grades.map(
+                      (g) =>
+                          DropdownMenuItem(value: g, child: Text('Grade $g')),
+                    ),
                   ],
                   onChanged: (v) => setState(() => selectedGrade = v),
                 ),
@@ -834,9 +902,7 @@ class _MaterialDetailScreenState extends State<MaterialDetailScreen>
           ),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
-            style: FilledButton.styleFrom(
-              backgroundColor: Colors.red,
-            ),
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
             child: const Text('Delete'),
           ),
         ],

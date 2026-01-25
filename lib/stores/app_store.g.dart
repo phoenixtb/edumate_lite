@@ -42,6 +42,28 @@ mixin _$AppStore on AppStoreBase, Store {
     });
   }
 
+  late final _$extractConceptsDuringProcessingAtom = Atom(
+    name: 'AppStoreBase.extractConceptsDuringProcessing',
+    context: context,
+  );
+
+  @override
+  bool get extractConceptsDuringProcessing {
+    _$extractConceptsDuringProcessingAtom.reportRead();
+    return super.extractConceptsDuringProcessing;
+  }
+
+  @override
+  set extractConceptsDuringProcessing(bool value) {
+    _$extractConceptsDuringProcessingAtom.reportWrite(
+      value,
+      super.extractConceptsDuringProcessing,
+      () {
+        super.extractConceptsDuringProcessing = value;
+      },
+    );
+  }
+
   late final _$isModelsDownloadedAtom = Atom(
     name: 'AppStoreBase.isModelsDownloaded',
     context: context,
@@ -258,9 +280,22 @@ mixin _$AppStore on AppStoreBase, Store {
   }
 
   @override
+  void setExtractConceptsDuringProcessing(bool value) {
+    final _$actionInfo = _$AppStoreBaseActionController.startAction(
+      name: 'AppStoreBase.setExtractConceptsDuringProcessing',
+    );
+    try {
+      return super.setExtractConceptsDuringProcessing(value);
+    } finally {
+      _$AppStoreBaseActionController.endAction(_$actionInfo);
+    }
+  }
+
+  @override
   String toString() {
     return '''
 themeMode: ${themeMode},
+extractConceptsDuringProcessing: ${extractConceptsDuringProcessing},
 isModelsDownloaded: ${isModelsDownloaded},
 isEmbeddingModelReady: ${isEmbeddingModelReady},
 isInferenceModelReady: ${isInferenceModelReady},

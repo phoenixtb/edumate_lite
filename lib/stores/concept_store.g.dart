@@ -78,6 +78,28 @@ mixin _$ConceptStore on _ConceptStore, Store {
     return _$loadConceptsAsyncAction.run(() => super.loadConcepts());
   }
 
+  late final _$reextractConceptsForMaterialAsyncAction = AsyncAction(
+    '_ConceptStore.reextractConceptsForMaterial',
+    context: context,
+  );
+
+  @override
+  Future<int> reextractConceptsForMaterial({
+    required int materialId,
+    required List<String> chunkContents,
+    required List<int> chunkIds,
+    String? subject,
+  }) {
+    return _$reextractConceptsForMaterialAsyncAction.run(
+      () => super.reextractConceptsForMaterial(
+        materialId: materialId,
+        chunkContents: chunkContents,
+        chunkIds: chunkIds,
+        subject: subject,
+      ),
+    );
+  }
+
   late final _$_ConceptStoreActionController = ActionController(
     name: '_ConceptStore',
     context: context,
@@ -90,6 +112,18 @@ mixin _$ConceptStore on _ConceptStore, Store {
     );
     try {
       return super.findOrCreate(name, type: type, subject: subject);
+    } finally {
+      _$_ConceptStoreActionController.endAction(_$actionInfo);
+    }
+  }
+
+  @override
+  void saveConcept(Concept concept) {
+    final _$actionInfo = _$_ConceptStoreActionController.startAction(
+      name: '_ConceptStore.saveConcept',
+    );
+    try {
+      return super.saveConcept(concept);
     } finally {
       _$_ConceptStoreActionController.endAction(_$actionInfo);
     }

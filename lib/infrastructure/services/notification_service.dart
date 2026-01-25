@@ -15,14 +15,17 @@ class NotificationService {
 
   NotificationService._();
 
-  final FlutterLocalNotificationsPlugin _plugin = FlutterLocalNotificationsPlugin();
+  final FlutterLocalNotificationsPlugin _plugin =
+      FlutterLocalNotificationsPlugin();
   bool _initialized = false;
 
   /// Initialize the notification service
   Future<void> initialize() async {
     if (_initialized) return;
 
-    const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
+    const androidSettings = AndroidInitializationSettings(
+      '@mipmap/ic_launcher',
+    );
     const iosSettings = DarwinInitializationSettings(
       requestAlertPermission: true,
       requestBadgePermission: true,
@@ -42,8 +45,10 @@ class NotificationService {
 
     // Request permission on Android 13+
     if (Platform.isAndroid) {
-      final androidImpl = _plugin.resolvePlatformSpecificImplementation<
-          AndroidFlutterLocalNotificationsPlugin>();
+      final androidImpl = _plugin
+          .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin
+          >();
       await androidImpl?.requestNotificationsPermission();
     }
 
@@ -111,6 +116,68 @@ class NotificationService {
       '"$materialTitle" is ready. Tap to extract concepts.',
       details,
       payload: 'material:$materialId',
+    );
+  }
+
+  /// Show notification when a task completes successfully
+  Future<void> showTaskComplete({
+    required String taskType,
+    required String description,
+  }) async {
+    if (!_initialized) await initialize();
+
+    const androidDetails = AndroidNotificationDetails(
+      'task_complete',
+      'Task Complete',
+      channelDescription: 'Notifications for completed AI tasks',
+      importance: Importance.defaultImportance,
+      priority: Priority.defaultPriority,
+    );
+
+    const iosDetails = DarwinNotificationDetails();
+
+    const details = NotificationDetails(
+      android: androidDetails,
+      iOS: iosDetails,
+      macOS: iosDetails,
+    );
+
+    await _plugin.show(
+      DateTime.now().millisecondsSinceEpoch ~/ 1000,
+      '$taskType Complete',
+      description,
+      details,
+    );
+  }
+
+  /// Show notification when a task fails
+  Future<void> showTaskFailed({
+    required String taskType,
+    required String error,
+  }) async {
+    if (!_initialized) await initialize();
+
+    const androidDetails = AndroidNotificationDetails(
+      'task_failed',
+      'Task Failed',
+      channelDescription: 'Notifications for failed AI tasks',
+      importance: Importance.high,
+      priority: Priority.high,
+    );
+
+    const iosDetails = DarwinNotificationDetails();
+
+    const details = NotificationDetails(
+      android: androidDetails,
+      iOS: iosDetails,
+      macOS: iosDetails,
+    );
+
+    await _plugin.show(
+      DateTime.now().millisecondsSinceEpoch ~/ 1000,
+      '$taskType Failed',
+      error,
+      details,
     );
   }
 }

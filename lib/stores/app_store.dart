@@ -10,9 +10,13 @@ abstract class AppStoreBase with Store {
   static const _keyThemeMode = 'theme_mode';
   static const _keyPreferDeepSeek = 'prefer_deepseek';
   static const _keyDevMode = 'dev_mode';
+  static const _keyExtractConceptsDuringProcessing = 'extract_concepts_during_processing';
 
   @observable
   ThemeMode themeMode = ThemeMode.system;
+
+  @observable
+  bool extractConceptsDuringProcessing = false;
 
   @observable
   bool isModelsDownloaded = false;
@@ -47,6 +51,9 @@ abstract class AppStoreBase with Store {
 
     // Dev mode
     devModeEnabled = prefs.getBool(_keyDevMode) ?? false;
+
+    // Extract concepts during processing
+    extractConceptsDuringProcessing = prefs.getBool(_keyExtractConceptsDuringProcessing) ?? false;
   }
 
   @action
@@ -85,6 +92,12 @@ abstract class AppStoreBase with Store {
   void setPreferPhi4ForText(bool value) {
     preferPhi4ForText = value;
     _persistPreference(_keyPreferDeepSeek, value);
+  }
+
+  @action
+  void setExtractConceptsDuringProcessing(bool value) {
+    extractConceptsDuringProcessing = value;
+    _persistPreference(_keyExtractConceptsDuringProcessing, value);
   }
 
   /// Persist a preference to SharedPreferences (async, fire-and-forget)
