@@ -94,10 +94,55 @@ class PdfInputAdapter implements InputSource {
         return;
       }
 
+      // === QUICK SCANNED PDF DETECTION ===
+      // Do a fast full-document text extraction first to detect scanned PDFs
+      yield ExtractionProgress(
+        progress: 0.15,
+        currentPage: 'Checking document type...',
+      );
+
+      final quickExtractor = PdfTextExtractor(document);
+      final fullText = quickExtractor.extractText();
+      final totalCharsQuick = fullText.length;
+      final charsPerPage = totalCharsQuick / pageCount;
+
+      // Threshold: If less than 50 chars per page, likely scanned
+      // A typical text page has 2000-3000 chars, so 50 is very conservative
+      const scannedThreshold = 50;
+
+      if (charsPerPage < scannedThreshold) {
+        AppLogger.warning(
+          '⚠️ [PDF] Scanned PDF detected: $totalCharsQuick total chars, '
+          '${charsPerPage.toStringAsFixed(1)} chars/page (threshold: $scannedThreshold)',
+        );
+
+        document.dispose();
+
+        final message = totalCharsQuick == 0
+            ? 'No text found - this is a scanned/image-based PDF'
+            : 'Very low text content (${charsPerPage.toStringAsFixed(0)} chars/page) - likely scanned';
+
+        yield ExtractionProgress(
+          progress: 0.2,
+          currentPage: 'Scanned PDF detected',
+          isComplete: true,
+          error: 'SCANNED_PDF:$message',
+          totalPages: pageCount,
+          extractionMethod: 'text',
+          textDensity: charsPerPage / 500, // Normalize to expected
+        );
+        return;
+      }
+
+      AppLogger.info(
+        '📄 [PDF] Text PDF confirmed: ${charsPerPage.toStringAsFixed(0)} chars/page',
+      );
+
       // STREAMING EXTRACTION: Process in batches, yield incrementally
       final batchSize = AppConstants.pdfPageBatchSize;
       final buffer = StringBuffer();
       bool hasAnyText = false;
+      int totalCharsExtracted = 0;
 
       for (
         var batchStart = 0;
@@ -113,6 +158,9 @@ class PdfInputAdapter implements InputSource {
 
         // Extract batch of pages with layout information
         for (var i = batchStart; i < batchEnd; i++) {
+          final pageNum = i + 1;
+          int pageChars = 0;
+
           // Extract text with layout (preserves paragraph structure)
           final textExtractor = PdfTextExtractor(document);
           final textLines = textExtractor.extractTextLines(
@@ -144,6 +192,7 @@ class PdfInputAdapter implements InputSource {
                 currentParagraph.write(' ');
               }
               currentParagraph.write(text);
+              pageChars += text.length;
               lastY = line.bounds.bottom;
               hasAnyText = true;
             }
@@ -155,11 +204,17 @@ class PdfInputAdapter implements InputSource {
             }
           }
 
-          // Report progress
-          final progress = 0.1 + (0.8 * (i + 1) / pageCount);
+          totalCharsExtracted += pageChars;
+
+          // Report progress with metadata
+          final progress = 0.2 + (0.7 * pageNum / pageCount);
           yield ExtractionProgress(
             progress: progress,
-            currentPage: 'Page ${i + 1}/$pageCount',
+            currentPage: 'Page $pageNum/$pageCount',
+            pageNumber: pageNum,
+            totalPages: pageCount,
+            extractionMethod: 'text',
+            textDensity: pageChars / 500.0, // Normalize to expected ~500 chars/page
           );
         }
 
@@ -169,20 +224,31 @@ class PdfInputAdapter implements InputSource {
             progress: 0.1 + (0.8 * batchEnd / pageCount),
             currentPage: 'Pages ${batchStart + 1}-$batchEnd extracted',
             extractedText: buffer.toString(),
+            extractionMethod: 'text',
           );
         }
       }
 
       // Dispose document to free memory
       document.dispose();
-      AppLogger.info('✅ PDF extraction complete: $pageCount pages');
 
-      // Final completion signal
+      // Calculate overall text density
+      final overallDensity = totalCharsExtracted / (pageCount * 500.0);
+
+      AppLogger.info(
+        '✅ PDF extraction complete: $pageCount pages, '
+        '$totalCharsExtracted chars, density: ${overallDensity.toStringAsFixed(2)}',
+      );
+
+      // Final completion signal (scanned detection already done upfront)
       yield ExtractionProgress(
         progress: 1.0,
         currentPage: 'Complete',
         isComplete: true,
-        error: hasAnyText ? null : 'No text found in PDF',
+        error: hasAnyText ? null : 'No text extracted from PDF',
+        totalPages: pageCount,
+        extractionMethod: 'text',
+        textDensity: overallDensity,
       );
     } catch (e) {
       yield ExtractionProgress(

@@ -1,5 +1,7 @@
 # EduMate Lite - Developer Setup Instructions
 
+**Last Updated:** January 14, 2026
+
 ## 🎯 IMPORTANT: Bundled Model Approach
 
 We use **bundled models** to avoid security risks:
@@ -23,6 +25,14 @@ Developer downloads models ONCE (with token)
   → 100% offline, 100% secure
   → Perfect for privacy-first kids app
 ```
+
+## 📊 Current Model Status
+
+| Model | Size | Status | Notes |
+|-------|------|--------|-------|
+| Gemma 3n E2B | 3.5GB | ✅ Active | Primary inference, works on all devices |
+| EmbeddingGemma 300M | 300MB | ✅ Active | Semantic search |
+| Qwen 2.5 | ~1.5GB | ⚠️ Experimental | Hardware issues on MediaTek/Mali GPUs |
 
 ---
 
@@ -190,8 +200,9 @@ flutter analyze
 - **Size:** 300MB
 - **Usage:** Query embeddings + chunk embeddings
 - **Speed:** ~1 sec per embedding on modern phone
+- **Loading:** `fromAsset()` - bundled in app
 
-### Gemma 3 Nano E2B
+### Gemma 3n E2B (Primary)
 - **Purpose:** Generate answers + Vision OCR
 - **Size:** 3.5GB (int4 quantized)
 - **Capabilities:**
@@ -199,6 +210,16 @@ flutter analyze
   - Vision (OCR from images/camera)
   - Multimodal understanding
 - **Speed:** ~2-3 tokens/sec on modern phone
+- **Loading:** `fromAsset()` - bundled in app
+- **Status:** ✅ Works on all tested devices
+
+### Qwen 2.5 (Experimental - Disabled)
+- **Purpose:** Enhanced text generation
+- **Size:** ~1.5GB
+- **Status:** ⚠️ Disabled in Settings UI
+- **Issue:** TFLite `GATHER_ND` op fails on MediaTek/Mali GPUs
+- **Loading:** `fromBundled()` - after network download
+- **Re-enable:** Update `settings_screen.dart` when hardware support improves
 
 ---
 
@@ -214,7 +235,7 @@ flutter analyze
 - Verify pubspec.yaml has `assets/models/`
 
 ### Out of Memory
-- Device needs 6GB+ RAM for Gemma 3 Nano
+- Device needs 6GB+ RAM for Gemma 3n
 - Try on higher-end device
 - Consider using smaller model in future (Gemma 3 270M)
 
@@ -223,20 +244,38 @@ flutter analyze
 - Subsequent ones are faster
 - Expected: 20 chunks = ~40 seconds
 
+### Qwen/DeepSeek Not Working
+- **Known issue:** Hardware incompatibility on MediaTek/Mali GPUs
+- **Error:** `GATHER_ND` TFLite operation failure
+- **Solution:** Use Gemma 3n (default, works everywhere)
+- **Status:** Qwen disabled in Settings UI with "Experimental - Coming Soon"
+
+### Empty Response / Generation Failed
+- Check device RAM (6GB+ required)
+- Try restarting app (model session may be stale)
+- If using Qwen, switch to Gemma 3n in Settings
+
 ---
 
 ## 📈 Next Development Steps
 
-1. ✅ **MVP Complete** - All core features working
-2. **Test with real content** - Try actual textbooks
-3. **Tune parameters:**
+1. ✅ **MVP Complete** - Gemma 3n working on all devices
+2. ✅ **Qwen Integration** - Attempted, disabled due to hardware issues
+3. **Test with real content** - Try actual textbooks
+4. **Tune parameters:**
    - Chunking size (currently 350 tokens)
    - Similarity threshold (currently 0.5)
    - Top-K retrieval (currently 5)
-4. **Add quiz UI** - Quiz generation backend is ready
-5. **Subject enhancers** - Math/Science specific chunking
-6. **Polish UI** - Animations, transitions
-7. **App Store preparation** - Screenshots, description
+5. **Add quiz UI** - Quiz generation backend is ready
+6. **Subject enhancers** - Math/Science specific chunking
+7. **Polish UI** - Animations, transitions
+8. **App Store preparation** - Screenshots, description
+
+### Qwen Re-enablement Checklist
+- [ ] Test on Qualcomm Snapdragon 8 Gen 2+ devices
+- [ ] Test on Samsung Exynos devices
+- [ ] Monitor flutter_gemma releases for MediaPipe fixes
+- [ ] Re-enable in `settings_screen.dart` when compatible
 
 ---
 
@@ -254,3 +293,21 @@ flutter analyze
 
 No security risks, no token exposure, works perfectly offline, ideal for kids.
 
+---
+
+## 📝 Debugging Reference
+
+### Key Logs to Watch
+```bash
+# Filter for model loading
+adb logcat | grep -E "(Gemma|Qwen|flutter_gemma|TFLite)"
+
+# Filter for inference
+adb logcat | grep -E "(generateResponse|InferenceRouter)"
+```
+
+### Important Files for Debugging
+- `lib/infrastructure/ai/inference_router.dart` - Model routing
+- `lib/infrastructure/ai/model_manager.dart` - Model lifecycle
+- `lib/stores/app_store.dart` - Model state flags
+- `lib/presentation/screens/settings/settings_screen.dart` - UI toggles

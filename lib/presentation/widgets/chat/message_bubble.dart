@@ -450,12 +450,32 @@ class _SourceCard extends StatelessWidget {
 
   const _SourceCard({required this.chunk});
 
+  String? _getChapterFromMetadata() {
+    if (chunk.metadataJson == null || chunk.metadataJson!.isEmpty) return null;
+    try {
+      // Simple parsing for chapter info
+      final json = chunk.metadataJson!;
+      if (json.contains('chapter')) {
+        final match = RegExp(r'"chapter"\s*:\s*"([^"]+)"').firstMatch(json);
+        return match?.group(1);
+      }
+      if (json.contains('section_title')) {
+        final match = RegExp(r'"section_title"\s*:\s*"([^"]+)"').firstMatch(json);
+        return match?.group(1);
+      }
+    } catch (_) {}
+    return null;
+  }
+
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final preview = chunk.content.length > 150
-        ? '${chunk.content.substring(0, 150)}...'
+    final preview = chunk.content.length > 120
+        ? '${chunk.content.substring(0, 120)}...'
         : chunk.content;
+    
+    final materialTitle = chunk.material.target?.title;
+    final chapter = _getChapterFromMetadata();
 
     return Container(
       margin: const EdgeInsets.only(bottom: 6),
@@ -470,47 +490,59 @@ class _SourceCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Source header
-          Row(
-            children: [
-              Icon(
-                Icons.description,
-                size: 14,
-                color: colorScheme.primary,
-              ),
-              const SizedBox(width: 6),
-              if (chunk.pageNumber != null)
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: colorScheme.primaryContainer,
-                    borderRadius: BorderRadius.circular(4),
-                  ),
+          // Material title
+          if (materialTitle != null) ...[
+            Row(
+              children: [
+                Icon(
+                  Icons.menu_book,
+                  size: 14,
+                  color: colorScheme.primary,
+                ),
+                const SizedBox(width: 6),
+                Expanded(
                   child: Text(
-                    'Page ${chunk.pageNumber}',
-                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                          color: colorScheme.onPrimaryContainer,
-                          fontWeight: FontWeight.w500,
+                    materialTitle,
+                    style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                          color: colorScheme.onSurface,
+                          fontWeight: FontWeight.w600,
                         ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
-              const SizedBox(width: 6),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                decoration: BoxDecoration(
-                  color: colorScheme.secondaryContainer,
-                  borderRadius: BorderRadius.circular(4),
+              ],
+            ),
+            const SizedBox(height: 6),
+          ],
+          
+          // Page, chapter, type badges
+          Wrap(
+            spacing: 6,
+            runSpacing: 4,
+            children: [
+              if (chunk.pageNumber != null)
+                _MetadataBadge(
+                  label: 'Page ${chunk.pageNumber}',
+                  color: colorScheme.primaryContainer,
+                  textColor: colorScheme.onPrimaryContainer,
                 ),
-                child: Text(
-                  chunk.chunkType,
-                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                        color: colorScheme.onSecondaryContainer,
-                      ),
+              if (chapter != null)
+                _MetadataBadge(
+                  label: chapter,
+                  color: colorScheme.tertiaryContainer,
+                  textColor: colorScheme.onTertiaryContainer,
                 ),
+              _MetadataBadge(
+                label: chunk.chunkType,
+                color: colorScheme.secondaryContainer,
+                textColor: colorScheme.onSecondaryContainer,
               ),
             ],
           ),
+          
           const SizedBox(height: 6),
+          
           // Content preview
           Text(
             preview,
@@ -523,6 +555,36 @@ class _SourceCard extends StatelessWidget {
             overflow: TextOverflow.ellipsis,
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _MetadataBadge extends StatelessWidget {
+  final String label;
+  final Color color;
+  final Color textColor;
+
+  const _MetadataBadge({
+    required this.label,
+    required this.color,
+    required this.textColor,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: Text(
+        label,
+        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: textColor,
+              fontWeight: FontWeight.w500,
+            ),
       ),
     );
   }

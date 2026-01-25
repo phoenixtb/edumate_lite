@@ -15,6 +15,21 @@ class AppConstants {
   static const String inferenceModelAsset =
       'assets/models/gemma-3n-E2B-it-int4.task';
 
+  // Phi-4 Mini Instruct (text-only, enhanced quality)
+  // From: litert-community/Phi-4-mini-instruct (PUBLIC - no auth needed)
+  // NOTE: Phi-4 has issues with MediaPipe template handling - use DeepSeek instead
+  static const String phi4ModelUrl =
+      'https://huggingface.co/litert-community/Phi-4-mini-instruct/resolve/main/Phi-4-mini-instruct_multi-prefill-seq_q8_ekv4096.task';
+  static const String phi4ModelName = 'Phi-4-mini-instruct';
+  static const int phi4ModelSizeMb = 2500; // ~2.5GB
+
+  // Qwen 2.5 1.5B Instruct (text-only, function calling support)
+  // From: litert-community/Qwen2.5-1.5B-Instruct (PUBLIC - no auth needed)
+  static const String qwenModelUrl =
+      'https://huggingface.co/litert-community/Qwen2.5-1.5B-Instruct/resolve/main/Qwen2.5-1.5B-Instruct_multi-prefill-seq_q8_ekv1280.task';
+  static const String qwenModelName = 'Qwen 2.5';
+  static const int qwenModelSizeMb = 1600; // ~1.6GB
+
   static const int embeddingDimension = 768;
   static const int maxEmbeddingTokens =
       2048; // EmbeddingGemma supports 2048 tokens
@@ -29,6 +44,12 @@ class AppConstants {
   static const int maxChunkSizeTokens =
       1950; // Hard limit (with 98-token buffer)
   static const int chunkOverlapTokens = 150; // Overlap for continuity
+  
+  // Word-based chunking (for educational strategy, ~1.3 tokens per word)
+  // Production uses TokenValidatedChunkingStrategy with actual tokenizer
+  static const int targetChunkWords = 1400; // ~1800 tokens
+  static const int maxChunkWords = 1500; // ~1950 tokens  
+  static const int chunkOverlapWords = 115; // ~150 tokens
 
   // RAG Configuration
   static const int retrievalTopK = 3; // Reduced from 5 for better focus

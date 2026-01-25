@@ -29,8 +29,10 @@ class _OnboardingScreenState extends State<OnboardingScreen>
   @override
   void initState() {
     super.initState();
+    debugPrint('🔷 [Onboarding] initState started');
     downloadService = getIt<ModelDownloadService>();
     aiInitService = getIt<AiInitializationService>();
+    debugPrint('🔷 [Onboarding] Services retrieved from getIt');
 
     _animationController = AnimationController(
       duration: const Duration(milliseconds: 800),
@@ -43,6 +45,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
     );
 
     _animationController.forward();
+    debugPrint('🔷 [Onboarding] About to call _checkModels');
     _checkModels();
   }
 
@@ -53,11 +56,35 @@ class _OnboardingScreenState extends State<OnboardingScreen>
   }
 
   Future<void> _checkModels() async {
-    final hasModels = await downloadService.checkModelsDownloaded();
-    if (hasModels) {
-      appStore.setEmbeddingModelReady(true);
-      appStore.setInferenceModelReady(true);
-      widget.onComplete();
+    debugPrint('🔷 [Onboarding] _checkModels started');
+    try {
+      final hasModels = await downloadService.checkModelsDownloaded();
+      debugPrint('🔷 [Onboarding] hasModels = $hasModels');
+      if (hasModels) {
+        // Models exist, but we still need to initialize the AI providers
+        debugPrint('🔷 [Onboarding] Models found, initializing providers...');
+        setState(() => _isLoading = true);
+        
+        final initResult = await aiInitService.initializeProviders();
+        
+        initResult.fold(
+          (failure) {
+            debugPrint('❌ [Onboarding] Provider init failed: ${failure.message}');
+            downloadStore.setEmbeddingError(failure.message);
+            setState(() => _isLoading = false);
+          },
+          (_) {
+            debugPrint('🔷 [Onboarding] Providers initialized, transitioning...');
+            appStore.setEmbeddingModelReady(true);
+            appStore.setInferenceModelReady(true);
+            widget.onComplete();
+          },
+        );
+      } else {
+        debugPrint('🔷 [Onboarding] Models not ready, showing welcome view');
+      }
+    } catch (e) {
+      debugPrint('❌ [Onboarding] _checkModels error: $e');
     }
   }
 
@@ -158,7 +185,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
           _FeatureItem(icon: Icons.cloud_off, text: 'Works completely offline'),
           _FeatureItem(
             icon: Icons.auto_awesome,
-            text: 'Powered by Google Gemma AI',
+            text: 'Powered by on-device AI',
           ),
 
           const Spacer(),

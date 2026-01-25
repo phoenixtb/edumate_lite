@@ -5,6 +5,7 @@ import 'config/service_locator.dart';
 import 'stores/app_store.dart';
 import 'presentation/theme/app_theme.dart';
 import 'presentation/screens/home/home_screen.dart';
+import 'infrastructure/services/notification_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -14,6 +15,13 @@ void main() async {
 
   // Setup dependency injection
   await setupServiceLocator();
+
+  // Initialize notification service
+  await NotificationService.instance.initialize();
+
+  // Load persisted user preferences
+  final appStore = getIt<AppStore>();
+  await appStore.loadPreferences();
 
   runApp(const MyApp());
 }

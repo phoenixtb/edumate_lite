@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_mobx/flutter_mobx.dart';
+import 'package:mobx/mobx.dart';
 import '../../../config/service_locator.dart';
 import '../../../stores/material_store.dart';
 import '../../widgets/material/material_card.dart';
@@ -15,11 +16,100 @@ class MaterialsScreen extends StatefulWidget {
 
 class _MaterialsScreenState extends State<MaterialsScreen> {
   final materialStore = getIt<MaterialStore>();
+  late final ReactionDisposer _scannedPdfDisposer;
 
   @override
   void initState() {
     super.initState();
     _loadMaterials();
+    _setupScannedPdfReaction();
+  }
+
+  @override
+  void dispose() {
+    _scannedPdfDisposer();
+    super.dispose();
+  }
+
+  void _setupScannedPdfReaction() {
+    _scannedPdfDisposer = reaction(
+      (_) => materialStore.pendingScannedPdfInput,
+      (input) {
+        if (input != null && mounted) {
+          _showScannedPdfDialog();
+        }
+      },
+    );
+  }
+
+  void _showScannedPdfDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        icon: const Icon(Icons.document_scanner, size: 48, color: Colors.orange),
+        title: const Text('Scanned PDF Detected'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              materialStore.pendingScannedPdfMessage ??
+                  'This PDF appears to be scanned or image-based.',
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Would you like to reprocess with AI Vision for better text extraction?',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                fontSize: 13,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.orange.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.info_outline, size: 16, color: Colors.orange.shade700),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'AI Vision is slower but handles scanned documents better.',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: Colors.orange.shade700,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              materialStore.cancelScannedPdfRetry();
+            },
+            child: const Text('Keep as-is'),
+          ),
+          FilledButton.icon(
+            onPressed: () {
+              Navigator.pop(ctx);
+              materialStore.retryWithVisionMode();
+            },
+            icon: const Icon(Icons.auto_awesome, size: 18),
+            label: const Text('Use AI Vision'),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _loadMaterials() async {
@@ -117,6 +207,14 @@ class _MaterialsScreenState extends State<MaterialsScreen> {
                           onRetry: material.status == 'failed'
                               ? () => materialStore.reprocessMaterial(material.id)
                               : null,
+                          onEdit: (title, subject, grade) {
+                            materialStore.updateMaterial(
+                              materialId: material.id,
+                              title: title,
+                              subject: subject,
+                              gradeLevel: grade,
+                            );
+                          },
                         );
                       },
                       childCount: materialStore.materials.length,

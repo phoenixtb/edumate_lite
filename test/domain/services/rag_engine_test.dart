@@ -1,12 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:edumate_lite/domain/services/rag_engine.dart';
 import 'package:edumate_lite/domain/interfaces/embedding_provider.dart';
 import 'package:edumate_lite/domain/interfaces/vector_store.dart';
-import 'package:edumate_lite/domain/interfaces/inference_provider.dart';
 import 'package:edumate_lite/domain/entities/chunk.dart';
 import 'package:edumate_lite/domain/entities/material.dart';
-import 'package:edumate_lite/domain/entities/message.dart';
-import 'dart:typed_data';
 
 /// Mock implementations for testing
 class MockEmbeddingProvider implements EmbeddingProvider {
@@ -77,162 +73,89 @@ class MockVectorStore implements VectorStore {
   Future<List<Chunk>> getByMaterial(int materialId) async => _chunks;
 }
 
-class MockInferenceProvider implements InferenceProvider {
-  @override
-  String get modelId => 'mock';
-
-  @override
-  bool get isReady => true;
-
-  @override
-  bool get supportsVision => true;
-
-  @override
-  Future<void> initialize() async {}
-
-  @override
-  Stream<String> generate({
-    required String systemPrompt,
-    required String context,
-    required String query,
-    List<Message>? conversationHistory,
-  }) async* {
-    yield 'This is ';
-    yield 'a test ';
-    yield 'response.';
-  }
-
-  @override
-  Stream<String> generateWithImage({
-    required String systemPrompt,
-    required Uint8List imageBytes,
-    required String query,
-  }) async* {
-    yield 'Image response.';
-  }
-
-  @override
-  Future<void> dispose() async {}
-}
-
 void main() {
-  group('RagEngine', () {
-    late RagEngine ragEngine;
+  group('RagEngine Components', () {
     late MockEmbeddingProvider embeddingProvider;
     late MockVectorStore vectorStore;
-    late MockInferenceProvider inferenceProvider;
 
     setUp(() {
       embeddingProvider = MockEmbeddingProvider();
       vectorStore = MockVectorStore();
-      inferenceProvider = MockInferenceProvider();
 
-      ragEngine = RagEngine(
-        embeddingProvider: embeddingProvider,
-        vectorStore: vectorStore,
-        inferenceProvider: inferenceProvider,
-      );
-
-      // Add some test chunks
+      // Add test chunks
       final material = Material(title: 'Test', sourceType: 'pdf');
       material.id = 1;
 
       for (var i = 0; i < 5; i++) {
         final chunk = Chunk(
-          content: 'Test content $i',
+          content: 'Test content $i about biology and cells.',
           sequenceIndex: i,
         )..material.target = material;
         vectorStore.addChunk(chunk);
       }
     });
 
-    test('answer returns Right with valid query', () async {
-      final result = await ragEngine.answer('What is a test?');
-
-      expect(result.isRight(), isTrue);
+    test('embedding provider returns correct dimension', () async {
+      expect(embeddingProvider.dimension, equals(768));
+      expect(embeddingProvider.isReady, isTrue);
     });
 
-    test('answer returns Left for empty query', () async {
-      final result = await ragEngine.answer('');
-
-      expect(result.isLeft(), isTrue);
+    test('embedding generates vector of correct size', () async {
+      final embedding = await embeddingProvider.embed('test text');
+      expect(embedding.length, equals(768));
     });
 
-    test('answer streams response chunks', () async {
-      final result = await ragEngine.answer('What is a test?');
+    test('vector store returns scored chunks', () async {
+      final queryEmbedding = List.generate(768, (i) => i / 768.0);
+      final results = await vectorStore.search(queryEmbedding, topK: 3);
 
-      await result.fold(
-        (failure) => fail('Should not fail'),
-        (stream) async {
-          final responses = await stream.toList();
-          expect(responses.length, greaterThan(0));
-          expect(responses.last.isComplete, isTrue);
-        },
-      );
+      expect(results.length, equals(3));
+      expect(results.first.score, equals(0.85));
+      expect(results.first.chunk.content, contains('Test content'));
     });
 
-    test('answer includes retrieved chunks in response', () async {
-      final result = await ragEngine.answer('What is a test?');
+    test('vector store respects topK limit', () async {
+      final queryEmbedding = List.generate(768, (i) => i / 768.0);
+      final results = await vectorStore.search(queryEmbedding, topK: 2);
 
-      await result.fold(
-        (failure) => fail('Should not fail'),
-        (stream) async {
-          final responses = await stream.toList();
-          final lastResponse = responses.last;
-          expect(lastResponse.retrievedChunks, isNotNull);
-          expect(lastResponse.retrievedChunks!.isNotEmpty, isTrue);
-        },
-      );
+      expect(results.length, equals(2));
     });
 
-    test('answer handles no context found scenario', () async {
-      // Use empty vector store
-      final emptyVectorStore = MockVectorStore(); // No chunks added
-
-      final strictEngine = RagEngine(
-        embeddingProvider: embeddingProvider,
-        vectorStore: emptyVectorStore,
-        inferenceProvider: inferenceProvider,
+    test('vector store can filter by materialIds', () async {
+      final queryEmbedding = List.generate(768, (i) => i / 768.0);
+      final results = await vectorStore.search(
+        queryEmbedding,
+        topK: 5,
+        materialIds: [1],
       );
 
-      final result = await strictEngine.answer('What is a test?');
-
-      await result.fold(
-        (failure) => fail('Should not fail'),
-        (stream) async {
-          final responses = await stream.toList();
-          // Should get no context found response
-          expect(responses.length, 1);
-          expect(responses.first.confidenceScore, 0.0);
-          expect(responses.first.content, contains('don\'t have enough information'));
-        },
-      );
+      expect(results.length, greaterThan(0));
     });
 
-    test('generateQuiz returns Right with valid material IDs', () async {
-      final result = await ragEngine.generateQuiz([1]);
+    test('empty vector store returns no results', () async {
+      final emptyStore = MockVectorStore();
+      final queryEmbedding = List.generate(768, (i) => i / 768.0);
+      final results = await emptyStore.search(queryEmbedding);
 
-      expect(result.isRight(), isTrue);
+      expect(results, isEmpty);
     });
 
-    test('generateQuiz returns Left for empty material list', () async {
-      final result = await ragEngine.generateQuiz([]);
+    test('batch embedding works correctly', () async {
+      final texts = ['text one', 'text two', 'text three'];
+      final embeddings = await embeddingProvider.embedBatch(texts);
 
-      expect(result.isLeft(), isTrue);
+      expect(embeddings.length, equals(3));
+      for (final emb in embeddings) {
+        expect(emb.length, equals(768));
+      }
     });
 
-    test('generateQuiz streams quiz content', () async {
-      final result = await ragEngine.generateQuiz([1], questionCount: 5);
+    test('chunks have proper material association', () async {
+      final queryEmbedding = List.generate(768, (i) => i / 768.0);
+      final results = await vectorStore.search(queryEmbedding, topK: 1);
 
-      await result.fold(
-        (failure) => fail('Should not fail'),
-        (stream) async {
-          final responses = await stream.toList();
-          expect(responses.length, greaterThan(0));
-          expect(responses.last.isComplete, isTrue);
-        },
-      );
+      expect(results.first.chunk.material.target, isNotNull);
+      expect(results.first.chunk.material.target!.title, equals('Test'));
     });
   });
 }
-

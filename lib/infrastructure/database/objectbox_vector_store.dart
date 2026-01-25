@@ -105,6 +105,15 @@ class ObjectBoxVectorStore implements VectorStore {
     }
   }
 
+  /// Get chunk by ID synchronously (for quick lookups)
+  Chunk? getChunkById(int id) {
+    try {
+      return _chunkBox.get(id);
+    } catch (e) {
+      return null;
+    }
+  }
+
   @override
   Future<List<Chunk>> getByMaterial(int materialId) async {
     try {

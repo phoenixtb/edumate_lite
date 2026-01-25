@@ -8,6 +8,7 @@ import '../chat/chat_screen.dart';
 import '../chat/chat_history_screen.dart';
 import '../materials/materials_tab.dart';
 import '../settings/settings_screen.dart';
+import '../../widgets/task_queue/task_queue_fab.dart';
 
 /// InheritedWidget to allow children to switch tabs and open chat
 class AppShellController extends InheritedWidget {
@@ -93,10 +94,16 @@ class _AppShellState extends State<AppShell> {
       switchTab: switchTab,
       openChat: _openChat,
       child: Scaffold(
-        body: PageView(
-          controller: _pageController,
-          physics: const NeverScrollableScrollPhysics(),
-          children: _pages,
+        body: Stack(
+          children: [
+            PageView(
+              controller: _pageController,
+              physics: const NeverScrollableScrollPhysics(),
+              children: _pages,
+            ),
+            // Draggable task queue FAB
+            const TaskQueueFAB(),
+          ],
         ),
         bottomNavigationBar: ConvexAppBar(
           key: ValueKey(_currentIndex),

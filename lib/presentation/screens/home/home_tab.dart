@@ -10,6 +10,8 @@ import '../../widgets/common/image_picker_button.dart';
 import '../../widgets/common/ocr_result_sheet.dart';
 import '../shell/app_shell.dart';
 import '../chat/chat_screen.dart';
+import '../worksheet/worksheet_screen.dart';
+import '../knowledge/knowledge_graph_screen.dart';
 
 class HomeTab extends StatelessWidget {
   const HomeTab({super.key});
@@ -233,18 +235,18 @@ class HomeTab extends StatelessWidget {
                   onTap: () => _goToTab(context, 3), // Library is now index 3
                 ),
                 _ActionCard(
-                  icon: Icons.quiz_outlined,
-                  title: 'Practice Quiz',
-                  subtitle: 'Coming soon',
+                  icon: Icons.assignment_outlined,
+                  title: 'Worksheet',
+                  subtitle: 'Generate practice',
                   color: colorScheme.tertiary,
-                  onTap: () => _showComingSoon(context),
+                  onTap: () => _openWorksheet(context),
                 ),
                 _ActionCard(
-                  icon: Icons.document_scanner_outlined,
-                  title: 'Scan Notes',
-                  subtitle: 'OCR from image',
-                  color: Colors.teal,
-                  onTap: () => _openScanNotes(context),
+                  icon: Icons.hub_outlined,
+                  title: 'Knowledge Graph',
+                  subtitle: 'Explore concepts',
+                  color: Colors.deepPurple,
+                  onTap: () => _openKnowledgeGraph(context),
                 ),
               ]),
             ),
@@ -350,6 +352,20 @@ class HomeTab extends StatelessWidget {
         content: Text('This feature is coming soon!'),
         behavior: SnackBarBehavior.floating,
       ),
+    );
+  }
+
+  void _openWorksheet(BuildContext context) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const WorksheetScreen()),
+    );
+  }
+
+  void _openKnowledgeGraph(BuildContext context) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const KnowledgeGraphScreen()),
     );
   }
 

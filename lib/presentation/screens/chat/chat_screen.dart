@@ -3,8 +3,10 @@ import 'package:flutter_mobx/flutter_mobx.dart';
 import '../../../config/service_locator.dart';
 import '../../../stores/chat_store.dart';
 import '../../../stores/material_store.dart';
+import '../../../stores/task_queue_store.dart';
 import '../../widgets/chat/message_bubble.dart';
 import '../../widgets/chat/input_bar.dart';
+import '../../widgets/task_queue/task_queue_fab.dart';
 
 class ChatScreen extends StatefulWidget {
   final int? conversationId;
@@ -18,6 +20,7 @@ class ChatScreen extends StatefulWidget {
 class _ChatScreenState extends State<ChatScreen> {
   final chatStore = getIt<ChatStore>();
   final materialStore = getIt<MaterialStore>();
+  final taskQueueStore = getIt<TaskQueueStore>();
   final TextEditingController _controller = TextEditingController();
   final ScrollController _scrollController = ScrollController();
 
@@ -62,6 +65,8 @@ class _ChatScreenState extends State<ChatScreen> {
           builder: (_) => Text(chatStore.currentConversation?.title ?? 'Chat'),
         ),
         actions: [
+          // Show task queue indicator if tasks are running
+          const TaskQueueIndicator(),
           IconButton(
             icon: const Icon(Icons.filter_list),
             onPressed: _showMaterialFilter,

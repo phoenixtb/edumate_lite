@@ -1,19 +1,22 @@
+import 'dart:convert';
 import 'package:dartz/dartz.dart';
 import '../interfaces/embedding_provider.dart';
 import '../interfaces/vector_store.dart';
-import '../interfaces/inference_provider.dart';
 import '../entities/message.dart';
 import '../../core/errors/failures.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/utils/token_estimator.dart';
+import '../../core/utils/bm25_scorer.dart';
 import '../../core/prompts/prompt_templates.dart';
+import '../../infrastructure/ai/model_manager.dart';
+import 'inference_router.dart';
 
 /// RAG (Retrieval-Augmented Generation) Engine
 /// Orchestrates retrieval and generation for Q&A
 class RagEngine {
   final EmbeddingProvider embeddingProvider;
   final VectorStore vectorStore;
-  final InferenceProvider inferenceProvider;
+  final InferenceRouter inferenceRouter;
 
   /// Configuration
   final int retrievalTopK;
@@ -23,7 +26,7 @@ class RagEngine {
   RagEngine({
     required this.embeddingProvider,
     required this.vectorStore,
-    required this.inferenceProvider,
+    required this.inferenceRouter,
     this.retrievalTopK = AppConstants.retrievalTopK,
     this.similarityThreshold = AppConstants.similarityThreshold,
     this.maxContextTokens = AppConstants.maxContextTokens,
@@ -47,8 +50,8 @@ class RagEngine {
         return Left(ModelFailure('Embedding provider not ready'));
       }
 
-      if (!inferenceProvider.isReady) {
-        return Left(ModelFailure('Inference provider not ready'));
+      if (ModelManager.instance.activeModel == ActiveModelType.none) {
+        return Left(ModelFailure('Inference model not loaded'));
       }
 
       // Generate query embedding (optimized for retrieval)
@@ -111,8 +114,8 @@ class RagEngine {
         return Left(ProcessingFailure('No materials specified'));
       }
 
-      if (!inferenceProvider.isReady) {
-        return Left(ModelFailure('Inference provider not ready'));
+      if (ModelManager.instance.activeModel == ActiveModelType.none) {
+        return Left(ModelFailure('Inference model not loaded'));
       }
 
       // Retrieve sample chunks from materials
@@ -139,7 +142,7 @@ class RagEngine {
         'difficulty': difficulty ?? 'medium',
       });
 
-      final responseStream = inferenceProvider.generate(
+      final responseStream = inferenceRouter.generate(
         systemPrompt: quizTemplate.systemPrompt,
         context: formattedContext,
         query: quizPrompt,
@@ -151,14 +154,27 @@ class RagEngine {
     }
   }
 
-  /// Rerank chunks based on query term overlap
-  /// Combines embedding similarity with lexical relevance
+  /// Hybrid reranking using vector similarity + BM25 + keyword metadata
+  /// Combines:
+  /// - Embedding similarity (50%)
+  /// - BM25 lexical score (25%)
+  /// - Keyword metadata match (15%)
+  /// - Concept tag match (5%)
+  /// - Importance boost (5%)
   List<ScoredChunk> _rerankChunks(
     List<ScoredChunk> candidates,
     String query,
     int topK,
   ) {
-    // Extract query terms (lowercase, remove common words)
+    if (candidates.isEmpty) return [];
+
+    // Calculate average document length for BM25 normalization
+    final avgDocLength = candidates.isEmpty
+        ? 500.0
+        : candidates.map((c) => c.chunk.content.length.toDouble()).reduce((a, b) => a + b) /
+            candidates.length;
+
+    // Extract query terms for keyword matching
     final queryTerms = query
         .toLowerCase()
         .split(RegExp(r'\s+'))
@@ -167,27 +183,68 @@ class RagEngine {
         .toSet();
 
     if (queryTerms.isEmpty) {
-      // Fallback to original order if no meaningful terms
       return candidates.take(topK).toList();
     }
 
-    // Score each chunk based on term overlap + embedding score
+    // Score each chunk using hybrid approach
     final reranked = candidates.map((sc) {
-      final contentLower = sc.chunk.content.toLowerCase();
-      
-      // Count matching terms
-      int termMatches = 0;
-      for (final term in queryTerms) {
-        if (contentLower.contains(term)) {
-          termMatches++;
-        }
+      final chunk = sc.chunk;
+
+      // 1. BM25 lexical score (replaces simple term matching)
+      final bm25Score = BM25Scorer.scoreSimple(
+        query: query,
+        document: chunk.content,
+        avgDocLength: avgDocLength,
+      );
+
+      // 2. Keyword metadata matching (extracted keywords from Phase 2)
+      double keywordScore = 0.0;
+      if (chunk.keywordsJson != null && chunk.keywordsJson!.isNotEmpty) {
+        try {
+          final keywords = List<String>.from(
+            jsonDecode(chunk.keywordsJson!) as List,
+          );
+          int keywordMatches = 0;
+          for (final term in queryTerms) {
+            if (keywords.any((k) => k.contains(term) || term.contains(k))) {
+              keywordMatches++;
+            }
+          }
+          keywordScore = queryTerms.isEmpty ? 0 : keywordMatches / queryTerms.length;
+        } catch (_) {}
       }
-      
-      // Combined score: 70% embedding, 30% term relevance
-      final termScore = queryTerms.isEmpty ? 0.0 : termMatches / queryTerms.length;
-      final combinedScore = (sc.score * 0.7) + (termScore * 0.3);
-      
-      return ScoredChunk(chunk: sc.chunk, score: combinedScore);
+
+      // 3. Concept tag matching (semantic category match)
+      double conceptScore = 0.0;
+      if (chunk.conceptTagsJson != null && chunk.conceptTagsJson!.isNotEmpty) {
+        try {
+          final conceptTags = List<String>.from(
+            jsonDecode(chunk.conceptTagsJson!) as List,
+          );
+          int conceptMatches = 0;
+          for (final term in queryTerms) {
+            if (conceptTags.any((c) => c.contains(term) || term.contains(c))) {
+              conceptMatches++;
+            }
+          }
+          conceptScore = queryTerms.isEmpty ? 0 : conceptMatches / queryTerms.length;
+        } catch (_) {}
+      }
+
+      // 4. Importance boost (isKeyPoint and importance score)
+      final importanceBoost = chunk.isKeyPoint
+          ? 1.0
+          : chunk.importance.clamp(0.0, 1.0);
+
+      // Combined score: weighted average
+      // 50% embedding + 25% BM25 + 15% keywords + 5% concepts + 5% importance
+      final combinedScore = (sc.score * 0.50) +
+          (bm25Score * 0.25) +
+          (keywordScore * 0.15) +
+          (conceptScore * 0.05) +
+          (importanceBoost * 0.05);
+
+      return ScoredChunk(chunk: chunk, score: combinedScore);
     }).toList();
 
     // Sort by combined score descending
@@ -261,8 +318,8 @@ class RagEngine {
     final formattedContext = qaTemplate.formatContext(context);
     final userPrompt = qaTemplate.buildPrompt({'query': query});
 
-    // Stream the actual response
-    final responseStream = inferenceProvider.generate(
+    // Stream the actual response via router (handles model switching)
+    final responseStream = inferenceRouter.generate(
       systemPrompt: qaTemplate.systemPrompt,
       context: formattedContext,
       query: userPrompt,
@@ -342,8 +399,8 @@ Would you like to:
         return Left(ProcessingFailure('No materials specified'));
       }
 
-      if (!inferenceProvider.isReady) {
-        return Left(ModelFailure('Inference provider not ready'));
+      if (ModelManager.instance.activeModel == ActiveModelType.none) {
+        return Left(ModelFailure('Inference model not loaded'));
       }
 
       // Retrieve chunks from materials
@@ -367,7 +424,7 @@ Would you like to:
         'maxPoints': maxPoints,
       });
 
-      final responseStream = inferenceProvider.generate(
+      final responseStream = inferenceRouter.generate(
         systemPrompt: summaryTemplate.systemPrompt,
         context: formattedContext,
         query: summaryPrompt,
@@ -389,8 +446,8 @@ Would you like to:
         return Left(ModelFailure('Embedding provider not ready'));
       }
 
-      if (!inferenceProvider.isReady) {
-        return Left(ModelFailure('Inference provider not ready'));
+      if (ModelManager.instance.activeModel == ActiveModelType.none) {
+        return Left(ModelFailure('Inference model not loaded'));
       }
 
       // Generate embedding for the concept
@@ -415,7 +472,7 @@ Would you like to:
       final formattedContext = explainTemplate.formatContext(context);
       final explainPrompt = explainTemplate.buildPrompt({'concept': concept});
 
-      final responseStream = inferenceProvider.generate(
+      final responseStream = inferenceRouter.generate(
         systemPrompt: explainTemplate.systemPrompt,
         context: formattedContext,
         query: explainPrompt,

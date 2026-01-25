@@ -110,6 +110,72 @@ mixin _$MaterialStore on MaterialStoreBase, Store {
     });
   }
 
+  late final _$pendingScannedPdfInputAtom = Atom(
+    name: 'MaterialStoreBase.pendingScannedPdfInput',
+    context: context,
+  );
+
+  @override
+  MaterialInput? get pendingScannedPdfInput {
+    _$pendingScannedPdfInputAtom.reportRead();
+    return super.pendingScannedPdfInput;
+  }
+
+  @override
+  set pendingScannedPdfInput(MaterialInput? value) {
+    _$pendingScannedPdfInputAtom.reportWrite(
+      value,
+      super.pendingScannedPdfInput,
+      () {
+        super.pendingScannedPdfInput = value;
+      },
+    );
+  }
+
+  late final _$pendingScannedPdfMessageAtom = Atom(
+    name: 'MaterialStoreBase.pendingScannedPdfMessage',
+    context: context,
+  );
+
+  @override
+  String? get pendingScannedPdfMessage {
+    _$pendingScannedPdfMessageAtom.reportRead();
+    return super.pendingScannedPdfMessage;
+  }
+
+  @override
+  set pendingScannedPdfMessage(String? value) {
+    _$pendingScannedPdfMessageAtom.reportWrite(
+      value,
+      super.pendingScannedPdfMessage,
+      () {
+        super.pendingScannedPdfMessage = value;
+      },
+    );
+  }
+
+  late final _$pendingScannedPdfMaterialIdAtom = Atom(
+    name: 'MaterialStoreBase.pendingScannedPdfMaterialId',
+    context: context,
+  );
+
+  @override
+  int? get pendingScannedPdfMaterialId {
+    _$pendingScannedPdfMaterialIdAtom.reportRead();
+    return super.pendingScannedPdfMaterialId;
+  }
+
+  @override
+  set pendingScannedPdfMaterialId(int? value) {
+    _$pendingScannedPdfMaterialIdAtom.reportWrite(
+      value,
+      super.pendingScannedPdfMaterialId,
+      () {
+        super.pendingScannedPdfMaterialId = value;
+      },
+    );
+  }
+
   late final _$processingJobsAtom = Atom(
     name: 'MaterialStoreBase.processingJobs',
     context: context,
@@ -148,6 +214,18 @@ mixin _$MaterialStore on MaterialStoreBase, Store {
     return _$processMaterialAsyncAction.run(() => super.processMaterial(input));
   }
 
+  late final _$retryWithVisionModeAsyncAction = AsyncAction(
+    'MaterialStoreBase.retryWithVisionMode',
+    context: context,
+  );
+
+  @override
+  Future<void> retryWithVisionMode() {
+    return _$retryWithVisionModeAsyncAction.run(
+      () => super.retryWithVisionMode(),
+    );
+  }
+
   late final _$deleteMaterialAsyncAction = AsyncAction(
     'MaterialStoreBase.deleteMaterial',
     context: context,
@@ -157,6 +235,28 @@ mixin _$MaterialStore on MaterialStoreBase, Store {
   Future<void> deleteMaterial(int materialId) {
     return _$deleteMaterialAsyncAction.run(
       () => super.deleteMaterial(materialId),
+    );
+  }
+
+  late final _$updateMaterialAsyncAction = AsyncAction(
+    'MaterialStoreBase.updateMaterial',
+    context: context,
+  );
+
+  @override
+  Future<void> updateMaterial({
+    required int materialId,
+    required String title,
+    String? subject,
+    int? gradeLevel,
+  }) {
+    return _$updateMaterialAsyncAction.run(
+      () => super.updateMaterial(
+        materialId: materialId,
+        title: title,
+        subject: subject,
+        gradeLevel: gradeLevel,
+      ),
     );
   }
 
@@ -184,6 +284,30 @@ mixin _$MaterialStore on MaterialStoreBase, Store {
     );
     try {
       return super.clearError();
+    } finally {
+      _$MaterialStoreBaseActionController.endAction(_$actionInfo);
+    }
+  }
+
+  @override
+  void clearPendingScannedPdf() {
+    final _$actionInfo = _$MaterialStoreBaseActionController.startAction(
+      name: 'MaterialStoreBase.clearPendingScannedPdf',
+    );
+    try {
+      return super.clearPendingScannedPdf();
+    } finally {
+      _$MaterialStoreBaseActionController.endAction(_$actionInfo);
+    }
+  }
+
+  @override
+  void cancelScannedPdfRetry() {
+    final _$actionInfo = _$MaterialStoreBaseActionController.startAction(
+      name: 'MaterialStoreBase.cancelScannedPdfRetry',
+    );
+    try {
+      return super.cancelScannedPdfRetry();
     } finally {
       _$MaterialStoreBaseActionController.endAction(_$actionInfo);
     }
@@ -219,6 +343,9 @@ mixin _$MaterialStore on MaterialStoreBase, Store {
 materials: ${materials},
 isLoading: ${isLoading},
 error: ${error},
+pendingScannedPdfInput: ${pendingScannedPdfInput},
+pendingScannedPdfMessage: ${pendingScannedPdfMessage},
+pendingScannedPdfMaterialId: ${pendingScannedPdfMaterialId},
 processingJobs: ${processingJobs},
 completedMaterials: ${completedMaterials},
 failedMaterials: ${failedMaterials},
