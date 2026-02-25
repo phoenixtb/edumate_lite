@@ -160,20 +160,13 @@ class InferenceRouter {
       await for (final response in responseStream) {
         if (stopped) continue;
         
-        // #region agent log
-        _debugLog('B', 'response_received', {'responseType': response.runtimeType.toString(), 'isTextResponse': response is TextResponse});
-        // #endregion
-        
         // Extract token from response - try multiple approaches
         String token = '';
         if (response is TextResponse) {
           token = response.token;
         } else {
-          // Try to extract text from response using toString
-          final responseStr = response.toString();
-          // #region agent log
-          _debugLog('B', 'non_text_response', {'toString': responseStr.length > 100 ? responseStr.substring(0, 100) : responseStr});
-          // #endregion
+          // Non-text response - skip silently
+          continue;
         }
         
         if (token.isNotEmpty) {

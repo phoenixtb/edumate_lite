@@ -119,10 +119,6 @@ class TokenValidatedChunkingStrategy implements ChunkingStrategy {
   ) async {
     final tokens = await _countTokens(text);
 
-    AppLogger.debug(
-      '[Chunking] Validating: ${text.length} chars, $tokens tokens',
-    );
-
     // Base case: under limit - valid chunk
     if (tokens <= _maxTokens) {
       return [
@@ -131,9 +127,6 @@ class TokenValidatedChunkingStrategy implements ChunkingStrategy {
     }
 
     // Over limit - binary split
-    AppLogger.debug(
-      '[Chunking] Over limit ($tokens > $_maxTokens), binary splitting',
-    );
     return await _binarySplit(text, pageNumber, startSequence, sourceTitle);
   }
 
@@ -146,13 +139,8 @@ class TokenValidatedChunkingStrategy implements ChunkingStrategy {
   ) async {
     final tokens = await _countTokens(text);
 
-    AppLogger.debug(
-      '[Chunking] BinarySplit check: ${text.length} chars, $tokens tokens (limit: $_maxTokens)',
-    );
-
     // Base case: under limit
     if (tokens <= _maxTokens) {
-      AppLogger.debug('[Chunking] ✅ Chunk OK: $tokens tokens');
       return [
         _createChunk(text, tokens, pageNumber, startSequence, sourceTitle),
       ];

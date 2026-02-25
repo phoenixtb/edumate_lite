@@ -144,6 +144,14 @@ class PdfInputAdapter implements InputSource {
       bool hasAnyText = false;
       int totalCharsExtracted = 0;
 
+      // Detect spaced text from first page sample
+      final isSpacedText = _detectSpacedText(fullText);
+      if (isSpacedText) {
+        AppLogger.warning(
+          '⚠️ [PDF] Spaced-character text detected, applying fix',
+        );
+      }
+
       for (
         var batchStart = 0;
         batchStart < pageCount;
@@ -174,8 +182,13 @@ class PdfInputAdapter implements InputSource {
             var lastY = 0.0;
 
             for (final line in textLines) {
-              final text = line.text.trim();
+              var text = line.text.trim();
               if (text.isEmpty) continue;
+
+              // Fix spaced-out characters if detected
+              if (isSpacedText) {
+                text = _fixSpacedLine(text);
+              }
 
               // Detect paragraph break (significant vertical gap > 15pt)
               if (lastY > 0 && (line.bounds.top - lastY) > 15) {
@@ -302,5 +315,57 @@ class PdfInputAdapter implements InputSource {
     } catch (e) {
       throw FileException('Failed to extract metadata: $e');
     }
+  }
+
+  /// Detect if PDF text has spaced-out characters (e.g., "H e l l o")
+  /// Some PDF generators place each glyph individually, causing extractors
+  /// to insert spaces between every character.
+  bool _detectSpacedText(String text) {
+    if (text.length < 50) return false;
+
+    // Sample a section, skip metadata-like header
+    final sample = text.length > 200 ? text.substring(50, 200) : text;
+
+    // Count pattern: single letter followed by space, repeated 3+ times
+    // e.g., "H e l l o" has pattern [letter][space][letter][space]...
+    final spacedRuns = RegExp(r'(?:[A-Za-z] ){3,}').allMatches(sample);
+    if (spacedRuns.isEmpty) return false;
+
+    // Calculate what fraction of the sample is spaced-out text
+    int spacedChars = 0;
+    for (final match in spacedRuns) {
+      spacedChars += match.end - match.start;
+    }
+    final ratio = spacedChars / sample.length;
+
+    // If >30% of text follows the spaced pattern, it's a spaced PDF
+    return ratio > 0.3;
+  }
+
+  /// Fix a single line of spaced-out text
+  /// "H e l l o  W o r l d" -> "Hello World"
+  /// Double spaces become word separators, single spaces are removed
+  String _fixSpacedLine(String text) {
+    final buffer = StringBuffer();
+    final chars = text.split('');
+
+    for (var i = 0; i < chars.length; i++) {
+      final char = chars[i];
+
+      if (char == ' ') {
+        final next = i < chars.length - 1 ? chars[i + 1] : '';
+
+        // Double space = word break
+        if (next == ' ') {
+          buffer.write(' ');
+          i++; // Skip the next space
+        }
+        // Single space between characters = skip
+      } else {
+        buffer.write(char);
+      }
+    }
+
+    return buffer.toString().trim();
   }
 }

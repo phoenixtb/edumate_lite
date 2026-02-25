@@ -8,6 +8,7 @@ import '../interfaces/vector_store.dart';
 import '../entities/material.dart';
 import '../entities/chunk.dart';
 import '../entities/page.dart';
+import '../entities/concept.dart';
 import 'page_image_service.dart';
 import 'keyword_extractor.dart';
 import 'llm_concept_extractor.dart';
@@ -30,6 +31,7 @@ class MaterialProcessor {
   final VectorStore vectorStore;
   final obx.Box<Material> materialBox;
   final obx.Box<Page> pageBox;
+  final obx.Box<Concept> conceptBox;
 
   /// Vision adapter for thorough PDF processing
   final InputSource? visionPdfAdapter;
@@ -41,6 +43,7 @@ class MaterialProcessor {
     required this.vectorStore,
     required this.materialBox,
     required this.pageBox,
+    required this.conceptBox,
     this.visionPdfAdapter,
   });
 
@@ -495,7 +498,7 @@ class MaterialProcessor {
     }
   }
 
-  /// Delete material and its chunks, pages, and page images
+  /// Delete material and its chunks, pages, page images, and concept references
   Future<Either<Failure, Unit>> deleteMaterial(int materialId) async {
     try {
       // Delete chunks
@@ -512,6 +515,9 @@ class MaterialProcessor {
       // Delete page images from filesystem
       await PageImageService.instance.deleteForMaterial(materialId);
 
+      // Clean up concept references
+      await _cleanupConceptsForMaterial(materialId);
+
       // Delete material
       final removed = materialBox.remove(materialId);
       if (!removed) {
@@ -521,6 +527,45 @@ class MaterialProcessor {
       return const Right(unit);
     } catch (e) {
       return Left(StorageFailure('Failed to delete material: $e'));
+    }
+  }
+
+  /// Remove material references from concepts, delete orphaned concepts
+  Future<void> _cleanupConceptsForMaterial(int materialId) async {
+    try {
+      final allConcepts = conceptBox.getAll();
+      
+      int orphanedCount = 0;
+      int updatedCount = 0;
+      
+      for (final concept in allConcepts) {
+        if (!concept.appearsInMaterial(materialId)) continue;
+        
+        // Remove this material from concept's materialIds
+        final materialIds = concept.materialIds;
+        materialIds.remove(materialId);
+        concept.materialIds = materialIds;
+        
+        if (materialIds.isEmpty) {
+          // No more materials reference this concept - delete it
+          conceptBox.remove(concept.id);
+          orphanedCount++;
+        } else {
+          // Still has other material references - update it
+          conceptBox.put(concept);
+          updatedCount++;
+        }
+      }
+      
+      if (orphanedCount > 0 || updatedCount > 0) {
+        AppLogger.debug(
+          '🗑️ Concept cleanup for material $materialId: '
+          '$orphanedCount deleted, $updatedCount updated',
+        );
+      }
+    } catch (e) {
+      AppLogger.warning('⚠️ Concept cleanup failed: $e');
+      // Don't fail the delete - concepts are secondary
     }
   }
 }

@@ -37,7 +37,10 @@ class _KnowledgeGraphScreenState extends State<KnowledgeGraphScreen> {
     // Load all concepts
     conceptStore.loadConcepts();
 
-    final concepts = conceptStore.concepts;
+    // Exclude keyword-based concepts (only show LLM-extracted)
+    final concepts = conceptStore.concepts
+        .where((c) => c.type != 'keyword')
+        .toList();
     if (concepts.isEmpty) {
       setState(() => _isLoading = false);
       return;
@@ -107,7 +110,10 @@ class _KnowledgeGraphScreenState extends State<KnowledgeGraphScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final concepts = conceptStore.concepts;
+    // Exclude keyword-based concepts
+    final concepts = conceptStore.concepts
+        .where((c) => c.type != 'keyword')
+        .toList();
 
     return Scaffold(
       appBar: AppBar(
@@ -127,8 +133,8 @@ class _KnowledgeGraphScreenState extends State<KnowledgeGraphScreen> {
       ),
       body: Column(
         children: [
-          // Type filter chips
-          _buildFilterChips(context),
+          // Type filter chips - only show when concepts exist
+          if (concepts.isNotEmpty) _buildFilterChips(context),
 
           // Graph or empty state
           Expanded(
@@ -136,7 +142,7 @@ class _KnowledgeGraphScreenState extends State<KnowledgeGraphScreen> {
                 ? const Center(child: CircularProgressIndicator())
                 : concepts.isEmpty
                     ? _buildEmptyState(context)
-                    : _graph != null
+                    : _graph != null && _graph!.vertexes.isNotEmpty
                         ? _buildGraphView(context)
                         : _buildEmptyState(context),
           ),
@@ -149,7 +155,9 @@ class _KnowledgeGraphScreenState extends State<KnowledgeGraphScreen> {
   }
 
   Widget _buildFilterChips(BuildContext context) {
-    final types = {'all', ...conceptStore.concepts.map((c) => c.type)}.toList();
+    // Exclude keyword type from filter chips
+    final llmConcepts = conceptStore.concepts.where((c) => c.type != 'keyword');
+    final types = {'all', ...llmConcepts.map((c) => c.type)}.toList();
 
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
@@ -157,8 +165,8 @@ class _KnowledgeGraphScreenState extends State<KnowledgeGraphScreen> {
       child: Row(
         children: types.map((type) {
           final count = type == 'all'
-              ? conceptStore.concepts.length
-              : conceptStore.concepts.where((c) => c.type == type).length;
+              ? llmConcepts.length
+              : llmConcepts.where((c) => c.type == type).length;
 
           return Padding(
             padding: const EdgeInsets.only(right: 8),

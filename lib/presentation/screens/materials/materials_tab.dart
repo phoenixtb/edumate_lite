@@ -118,12 +118,12 @@ class _MaterialsTabState extends State<MaterialsTab> {
                       delegate: SliverChildBuilderDelegate(
                         (context, index) {
                           final material = materialStore.materials[index];
-                          final concepts = conceptStore.getConceptsForMaterial(material.id);
+                          final hasConcepts = conceptStore.hasLLMConcepts(material.id);
                           return Padding(
                             padding: const EdgeInsets.only(bottom: 12),
                             child: MaterialCard(
                               material: material,
-                              hasConcepts: concepts.isNotEmpty,
+                              hasConcepts: hasConcepts,
                               onTap: material.status == 'completed'
                                   ? () => Navigator.push(
                                         context,

@@ -8,6 +8,7 @@ import '../../../domain/entities/chunk.dart';
 import '../../../domain/entities/ai_task.dart';
 import '../../../domain/services/llm_concept_extractor.dart';
 import '../../../domain/services/inference_router.dart';
+import 'semantic_keyword_test_screen.dart';
 import '../../../stores/material_store.dart';
 import '../../../stores/concept_store.dart';
 import '../../../stores/task_queue_store.dart';
@@ -323,6 +324,17 @@ class _MaterialDetailScreenState extends State<MaterialDetailScreen>
                     Icon(Icons.delete, size: 20, color: Colors.red),
                     SizedBox(width: 12),
                     Text('Delete', style: TextStyle(color: Colors.red)),
+                  ],
+                ),
+              ),
+              const PopupMenuDivider(),
+              const PopupMenuItem(
+                value: 'test_keywords',
+                child: Row(
+                  children: [
+                    Icon(Icons.science, size: 20, color: Colors.purple),
+                    SizedBox(width: 12),
+                    Text('Test Semantic Keywords'),
                   ],
                 ),
               ),
@@ -796,7 +808,20 @@ class _MaterialDetailScreenState extends State<MaterialDetailScreen>
       case 'delete':
         _showDeleteConfirmation();
         break;
+      case 'test_keywords':
+        _testSemanticKeywords();
+        break;
     }
+  }
+
+  /// Navigate to semantic keyword test screen
+  void _testSemanticKeywords() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => SemanticKeywordTestScreen(material: widget.material),
+      ),
+    );
   }
 
   Future<void> _showEditDialog() async {

@@ -111,15 +111,24 @@ abstract class _ConceptStore with Store {
   }
 
   /// Get concepts for a material - queries database directly
+  /// Excludes keyword-based concepts (type='keyword')
   @action
   List<Concept> getConceptsForMaterial(int materialId) {
     // Query database directly to ensure we get all concepts
     final allConcepts = _objectBox.conceptBox.getAll();
     final materialConcepts = allConcepts
-        .where((c) => c.appearsInMaterial(materialId))
+        .where((c) => c.appearsInMaterial(materialId) && c.type != 'keyword')
         .toList()
       ..sort((a, b) => b.frequency.compareTo(a.frequency));
     return materialConcepts;
+  }
+  
+  /// Check if a material has LLM-extracted concepts (not keyword-based)
+  bool hasLLMConcepts(int materialId) {
+    final allConcepts = _objectBox.conceptBox.getAll();
+    return allConcepts.any(
+      (c) => c.appearsInMaterial(materialId) && c.type != 'keyword',
+    );
   }
 
   /// Get top concepts by frequency
@@ -185,8 +194,11 @@ abstract class _ConceptStore with Store {
     concepts.clear();
   }
 
-  /// Extract and store concepts from chunk content
-  /// Call this during material processing
+  /// Extract and store concepts from chunk content using keyword extraction
+  /// 
+  /// @deprecated Use LLMConceptExtractor for semantic concept extraction.
+  /// This keyword-based extraction creates lower-quality concepts.
+  /// Only use as fallback when LLM is not available.
   @action
   List<Concept> extractAndStoreConcepts({
     required String content,
@@ -202,7 +214,7 @@ abstract class _ConceptStore with Store {
     final storedConcepts = <Concept>[];
 
     for (final keyword in keywords) {
-      final concept = findOrCreate(keyword, subject: subject);
+      final concept = findOrCreate(keyword, type: 'keyword', subject: subject);
       concept.addMaterial(materialId);
       concept.addChunk(chunkId);
       _objectBox.conceptBox.put(concept);
@@ -217,8 +229,8 @@ abstract class _ConceptStore with Store {
 
       // Only link if both concepts exist or are keywords
       if (keywords.contains(fromName) || keywords.contains(toName)) {
-        final fromConcept = findOrCreate(fromName, subject: subject);
-        final toConcept = findOrCreate(toName, subject: subject);
+        final fromConcept = findOrCreate(fromName, type: 'keyword', subject: subject);
+        final toConcept = findOrCreate(toName, type: 'keyword', subject: subject);
 
         // Add bidirectional relationship
         linkConcepts(fromConcept.id, toConcept.id);

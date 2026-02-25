@@ -98,6 +98,7 @@ Future<void> setupServiceLocator() async {
       vectorStore: getIt<ObjectBoxVectorStore>(),
       materialBox: objectBox.materialBox,
       pageBox: objectBox.pageBox,
+      conceptBox: objectBox.conceptBox,
       visionPdfAdapter: getIt<VisionPdfAdapter>(),
     ),
   );
